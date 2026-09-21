@@ -14,13 +14,174 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      channels: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          position: number
+          server_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          position?: number
+          server_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          position?: number
+          server_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "channels_server_id_fkey"
+            columns: ["server_id"]
+            isOneToOne: false
+            referencedRelation: "servers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      messages: {
+        Row: {
+          channel_id: string
+          content: string
+          created_at: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          channel_id: string
+          content: string
+          created_at?: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          channel_id?: string
+          content?: string
+          created_at?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "messages_channel_id_fkey"
+            columns: ["channel_id"]
+            isOneToOne: false
+            referencedRelation: "channels"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          created_at: string
+          display_name: string
+          id: string
+          status: string
+          updated_at: string
+          username: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string
+          display_name?: string
+          id: string
+          status?: string
+          updated_at?: string
+          username: string
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string
+          display_name?: string
+          id?: string
+          status?: string
+          updated_at?: string
+          username?: string
+        }
+        Relationships: []
+      }
+      server_members: {
+        Row: {
+          id: string
+          joined_at: string
+          role: string
+          server_id: string
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          joined_at?: string
+          role?: string
+          server_id: string
+          user_id: string
+        }
+        Update: {
+          id?: string
+          joined_at?: string
+          role?: string
+          server_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "server_members_server_id_fkey"
+            columns: ["server_id"]
+            isOneToOne: false
+            referencedRelation: "servers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      servers: {
+        Row: {
+          created_at: string
+          icon_url: string | null
+          id: string
+          invite_code: string
+          name: string
+          owner_id: string
+        }
+        Insert: {
+          created_at?: string
+          icon_url?: string | null
+          id?: string
+          invite_code?: string
+          name: string
+          owner_id: string
+        }
+        Update: {
+          created_at?: string
+          icon_url?: string | null
+          id?: string
+          invite_code?: string
+          name?: string
+          owner_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      channel_server_id: { Args: { _channel_id: string }; Returns: string }
+      is_server_member: {
+        Args: { _server_id: string; _user_id: string }
+        Returns: boolean
+      }
+      is_server_owner: {
+        Args: { _server_id: string; _user_id: string }
+        Returns: boolean
+      }
+      join_server_by_code: { Args: { _code: string }; Returns: string }
     }
     Enums: {
       [_ in never]: never
