@@ -686,13 +686,19 @@ function JoinServerDialog({
   const [code, setCode] = useState("");
   const [busy, setBusy] = useState(false);
 
-  async function join() {
+  async function join(): Promise<void> {
     const clean = code.trim().toLowerCase();
-    if (!clean) return toast.error("Davet kodunu gir");
+    if (!clean) {
+      toast.error("Davet kodunu gir");
+      return;
+    }
     setBusy(true);
     const { data, error } = await supabase.rpc("join_server_by_code", { _code: clean });
     setBusy(false);
-    if (error || !data) return toast.error("Davet kodu geçersiz");
+    if (error || !data) {
+      toast.error("Davet kodu geçersiz");
+      return;
+    }
     toast.success("Sunucuya katıldın");
     setCode("");
     onOpenChange(false);
@@ -778,14 +784,20 @@ function CreateChannelDialog({
   const [name, setName] = useState("");
   const [busy, setBusy] = useState(false);
 
-  async function create() {
+  async function create(): Promise<void> {
     const clean = name.trim().toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9çğıöşü_-]/g, "").slice(0, 30);
     if (!serverId) return;
-    if (clean.length < 2) return toast.error("Kanal adı en az 2 karakter olmalı");
+    if (clean.length < 2) {
+      toast.error("Kanal adı en az 2 karakter olmalı");
+      return;
+    }
     setBusy(true);
     const { error } = await supabase.from("channels").insert({ server_id: serverId, name: clean });
     setBusy(false);
-    if (error) return toast.error("Kanal oluşturulamadı");
+    if (error) {
+      toast.error("Kanal oluşturulamadı");
+      return;
+    }
     toast.success("Kanal oluşturuldu");
     setName("");
     onOpenChange(false);
