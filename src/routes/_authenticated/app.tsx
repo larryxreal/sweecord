@@ -621,9 +621,12 @@ function CreateServerDialog({
   const [name, setName] = useState("");
   const [busy, setBusy] = useState(false);
 
-  async function create() {
+  async function create(): Promise<void> {
     const clean = name.trim().slice(0, 50);
-    if (clean.length < 2) return toast.error("Sunucu adı en az 2 karakter olmalı");
+    if (clean.length < 2) {
+      toast.error("Sunucu adı en az 2 karakter olmalı");
+      return;
+    }
     setBusy(true);
     const { data, error } = await supabase
       .from("servers")
@@ -631,7 +634,10 @@ function CreateServerDialog({
       .select("id")
       .single();
     setBusy(false);
-    if (error || !data) return toast.error("Sunucu oluşturulamadı");
+    if (error || !data) {
+      toast.error(error?.message ? `Sunucu oluşturulamadı: ${error.message}` : "Sunucu oluşturulamadı");
+      return;
+    }
     toast.success("Sunucu oluşturuldu");
     setName("");
     onOpenChange(false);
