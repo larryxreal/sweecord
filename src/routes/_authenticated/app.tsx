@@ -246,11 +246,14 @@ function AppPage() {
     else qc.invalidateQueries({ queryKey: ["messages", channelId] });
   }
 
-  async function leaveServer() {
+  async function leaveServer(): Promise<void> {
     if (!activeServer) return;
     if (activeServer.owner_id === user.id) {
       const { error } = await supabase.from("servers").delete().eq("id", activeServer.id);
-      if (error) return toast.error("Sunucu silinemedi");
+      if (error) {
+        toast.error("Sunucu silinemedi");
+        return;
+      }
       toast.success("Sunucu silindi");
     } else {
       const { error } = await supabase
@@ -258,7 +261,10 @@ function AppPage() {
         .delete()
         .eq("server_id", activeServer.id)
         .eq("user_id", user.id);
-      if (error) return toast.error("Sunucudan çıkılamadı");
+      if (error) {
+        toast.error("Sunucudan çıkılamadı");
+        return;
+      }
       toast.success("Sunucudan ayrıldın");
     }
     setServerId(null);
