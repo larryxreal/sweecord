@@ -39,6 +39,8 @@ import {
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { UserAvatar } from "@/components/sweecord/UserAvatar";
 import { ProfileDialog } from "@/components/sweecord/ProfileDialog";
+import { FriendsPanel } from "@/components/sweecord/FriendsPanel";
+import { ServerSettingsDialog } from "@/components/sweecord/ServerSettingsDialog";
 import {
   formatTime,
   initials,
@@ -74,6 +76,7 @@ function AppPage() {
   const [joinOpen, setJoinOpen] = useState(false);
   const [inviteOpen, setInviteOpen] = useState(false);
   const [channelOpen, setChannelOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [draft, setDraft] = useState("");
   const bottomRef = useRef<HTMLDivElement>(null);
 
@@ -368,6 +371,9 @@ function AppPage() {
                   <DropdownMenuItem onClick={() => setInviteOpen(true)}>
                     <Copy className="size-4" /> Davet kodunu göster
                   </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setSettingsOpen(true)}>
+                    <Settings className="size-4" /> Sunucu ayarları
+                  </DropdownMenuItem>
                   {isOwner && (
                     <DropdownMenuItem onClick={() => setChannelOpen(true)}>
                       <Plus className="size-4" /> Kanal oluştur
@@ -416,9 +422,15 @@ function AppPage() {
                 ))}
               </>
             ) : (
-              <p className="px-2 py-4 text-sm text-muted-foreground">
-                Soldan bir sunucu seç ya da yeni bir tane oluştur.
-              </p>
+              <>
+                <div className="flex w-full items-center gap-2 rounded bg-sidebar-accent px-2 py-1.5 text-[15px] text-sidebar-accent-foreground">
+                  <Users className="size-4 shrink-0" />
+                  <span className="truncate">Arkadaşlar</span>
+                </div>
+                <p className="px-2 py-4 text-sm text-muted-foreground">
+                  Soldan bir sunucu seç ya da yeni bir tane oluştur.
+                </p>
+              </>
             )}
           </ScrollArea>
 
