@@ -468,6 +468,10 @@ function AppPage() {
 
         {/* chat */}
         <main className="flex min-w-0 flex-1 flex-col">
+          {!activeServer ? (
+            <FriendsPanel userId={user.id} />
+          ) : (
+            <>
           <header className="flex h-12 shrink-0 items-center gap-2 border-b border-border px-4 shadow-panel">
             {activeChannel ? (
               <>
@@ -573,6 +577,8 @@ function AppPage() {
               </aside>
             )}
           </div>
+            </>
+          )}
         </main>
       </div>
 
@@ -612,6 +618,19 @@ function AppPage() {
         onOpenChange={setChannelOpen}
         serverId={serverId}
         onCreated={() => qc.invalidateQueries({ queryKey: ["channels", serverId] })}
+      />
+
+      <ServerSettingsDialog
+        open={settingsOpen}
+        onOpenChange={setSettingsOpen}
+        server={activeServer}
+        channels={channels}
+        members={members}
+        isOwner={isOwner}
+        onDeleted={() => {
+          setServerId(null);
+          qc.invalidateQueries({ queryKey: ["servers", user.id] });
+        }}
       />
     </TooltipProvider>
   );
