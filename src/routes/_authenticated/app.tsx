@@ -160,33 +160,76 @@ function AppPage() {
   }, [channels, channelId]);
 
   /* ---------------- members ---------------- */
+  const rolesQuery = useQuery({
+    queryKey: ["roles", serverId],
+    enabled: !!serverId,
+    queryFn: async (): Promise<ServerRole[]> => {
+      const { data, error } = await supabase
+        .from("server_roles")
+        .select("*")
+        .eq("server_id", serverId!)
+        .order("position", { ascending: true })
+        .order("created_at", { ascending: true });
+      if (error) throw error;
+      return (data ?? []) as ServerRole[];
+    },
+  });
+  const roles = useMemo(() => rolesQuery.data ?? [], [rolesQuery.data]);
+
   const membersQuery = useQuery({
     queryKey: ["members", serverId],
     enabled: !!serverId,
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data: rows, error } = await supabase
         .from("server_members")
-        .select("user_id, role, profiles:profiles!inner(id, username, display_name, avatar_url, status)")
+        .select("user_id, role")
         .eq("server_id", serverId!);
       if (error) throw error;
-      return (data ?? []) as unknown as {
-        user_id: string;
-        role: string;
-        profiles: Pick<Profile, "id" | "username" | "display_name" | "avatar_url" | "status">;
-      }[];
+      const ids = (rows ?? []).map((r) => r.user_id);
+      if (ids.length === 0) return [];
+      const [{ data: profs }, { data: mr }] = await Promise.all([
+        supabase.from("profiles").select("id, username, display_name, avatar_url, status").in("id", ids),
+        supabase.from("member_roles").select("user_id, role_id").eq("server_id", serverId!),
+      ]);
+      const pmap = new Map((profs ?? []).map((p) => [p.id, p]));
+      return (rows ?? []).map((r) => ({
+        user_id: r.user_id,
+        role: r.role,
+        role_ids: (mr ?? []).filter((x) => x.user_id === r.user_id).map((x) => x.role_id),
+        profiles: pmap.get(r.user_id) ?? {
+          id: r.user_id,
+          username: "kullanici",
+          display_name: "",
+          avatar_url: null,
+          status: "",
+        },
+      })) as ServerMember[];
     },
   });
   const members = useMemo(() => membersQuery.data ?? [], [membersQuery.data]);
   const memberMap = useMemo(() => {
-    const map = new Map<string, { name: string; avatar: string | null }>();
+    const map = new Map<string, { name: string; avatar: string | null; color: string | null }>();
     for (const m of members) {
+      const top = roles.find((r) => m.role_ids.includes(r.id));
       map.set(m.user_id, {
         name: m.profiles?.display_name || m.profiles?.username || "Üye",
         avatar: m.profiles?.avatar_url ?? null,
+        color: top?.color ?? null,
       });
     }
     return map;
-  }, [members]);
+  }, [members, roles]);
+  const [viewUserId, setViewUserId] = useState<string | null>(null);
+  const viewMember = members.find((m) => m.user_id === viewUserId) ?? null;
+  const myPerms = useMemo(() => {
+    const me = members.find((m) => m.user_id === user.id);
+    const mine = roles.filter((r) => me?.role_ids.includes(r.id));
+    return {
+      manage_messages: mine.some((r) => r.manage_messages),
+      manage_channels: mine.some((r) => r.manage_channels),
+      kick_members: mine.some((r) => r.kick_members),
+    };
+  }, [members, roles, user.id]);
 
   /* ---------------- messages ---------------- */
   const messagesQuery = useQuery({
