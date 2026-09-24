@@ -17,16 +17,20 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { UserAvatar } from "@/components/sweecord/UserAvatar";
-import type { Channel, Profile, Server } from "@/lib/sweecord";
+import type { Channel, Server, ServerMember, ServerRole } from "@/lib/sweecord";
+import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
 
-type Member = {
-  user_id: string;
-  role: string;
-  profiles: Pick<Profile, "id" | "username" | "display_name" | "avatar_url" | "status">;
-};
+type Member = ServerMember;
 
-type Section = "overview" | "channels" | "members";
+type Section = "overview" | "roles" | "channels" | "members";
+
+const COLORS = ["#99aab5", "#1abc9c", "#2ecc71", "#3498db", "#9b59b6", "#e91e63", "#f1c40f", "#e67e22", "#e74c3c"];
+const PERMS: { key: "manage_channels" | "manage_messages" | "kick_members"; label: string }[] = [
+  { key: "manage_channels", label: "Kanalları yönet" },
+  { key: "manage_messages", label: "Mesajları yönet" },
+  { key: "kick_members", label: "Üyeleri at" },
+];
 
 export function ServerSettingsDialog({
   open,
@@ -34,7 +38,10 @@ export function ServerSettingsDialog({
   server,
   channels,
   members,
+  roles,
   isOwner,
+  canKick,
+  canManageChannels,
   onDeleted,
 }: {
   open: boolean;
@@ -42,7 +49,10 @@ export function ServerSettingsDialog({
   server: Server | null;
   channels: Channel[];
   members: Member[];
+  roles: ServerRole[];
   isOwner: boolean;
+  canKick: boolean;
+  canManageChannels: boolean;
   onDeleted: () => void;
 }) {
   const qc = useQueryClient();
@@ -61,6 +71,59 @@ export function ServerSettingsDialog({
     qc.invalidateQueries({ queryKey: ["servers"] });
     qc.invalidateQueries({ queryKey: ["channels", server.id] });
     qc.invalidateQueries({ queryKey: ["members", server.id] });
+    qc.invalidateQueries({ queryKey: ["roles", server.id] });
+  }
+
+  async function createRole(): Promise<void> {
+    if (!server) return;
+    const { error } = await supabase
+      .from("server_roles")
+      .insert({ server_id: server.id, name: "yeni rol", position: roles.length });
+    if (error) {
+      toast.error("Rol oluşturulamadı");
+      return;
+    }
+    invalidate();
+  }
+
+  async function updateRole(id: string, patch: Partial<ServerRole>): Promise<void> {
+    const { error } = await supabase.from("server_roles").update(patch).eq("id", id);
+    if (error) {
+      toast.error("Rol güncellenemedi");
+      return;
+    }
+    invalidate();
+  }
+
+  async function renameRole(role: ServerRole): Promise<void> {
+    const input = window.prompt("Rol adı", role.name);
+    if (input === null) return;
+    const clean = input.trim().slice(0, 32);
+    if (!clean) return;
+    await updateRole(role.id, { name: clean });
+  }
+
+  async function deleteRole(role: ServerRole): Promise<void> {
+    if (!window.confirm(`"${role.name}" rolü silinsin mi?`)) return;
+    const { error } = await supabase.from("server_roles").delete().eq("id", role.id);
+    if (error) {
+      toast.error("Rol silinemedi");
+      return;
+    }
+    invalidate();
+  }
+
+  async function toggleMemberRole(member: Member, role: ServerRole): Promise<void> {
+    if (!server) return;
+    const has = member.role_ids.includes(role.id);
+    const { error } = has
+      ? await supabase.from("member_roles").delete().eq("user_id", member.user_id).eq("role_id", role.id)
+      : await supabase.from("member_roles").insert({ server_id: server.id, user_id: member.user_id, role_id: role.id });
+    if (error) {
+      toast.error("Rol ataması başarısız");
+      return;
+    }
+    invalidate();
   }
 
   async function saveName(): Promise<void> {
@@ -141,6 +204,7 @@ export function ServerSettingsDialog({
 
   const sections: { key: Section; label: string }[] = [
     { key: "overview", label: "Genel Bakış" },
+    { key: "roles", label: "Roller" },
     { key: "channels", label: "Kanallar" },
     { key: "members", label: "Üyeler" },
   ];
@@ -233,13 +297,69 @@ export function ServerSettingsDialog({
                 </div>
               )}
 
+              {section === "roles" && (
+                <div className="space-y-3">
+                  {isOwner && (
+                    <Button size="sm" onClick={createRole}>
+                      Rol oluştur
+                    </Button>
+                  )}
+                  {roles.length === 0 && <p className="text-sm text-muted-foreground">Henüz rol yok.</p>}
+                  {roles.map((r) => (
+                    <div key={r.id} className="space-y-3 rounded-md bg-background p-3">
+                      <div className="flex items-center gap-2">
+                        <span className="size-3 rounded-full" style={{ backgroundColor: r.color }} />
+                        <span className="flex-1 truncate text-sm font-semibold" style={{ color: r.color }}>
+                          {r.name}
+                        </span>
+                        {isOwner && (
+                          <>
+                            <Button size="sm" variant="ghost" onClick={() => renameRole(r)}>
+                              Yeniden adlandır
+                            </Button>
+                            <Button size="icon" variant="ghost" onClick={() => deleteRole(r)}>
+                              <Trash2 className="size-4 text-destructive" />
+                            </Button>
+                          </>
+                        )}
+                      </div>
+                      {isOwner && (
+                        <div className="flex flex-wrap gap-1.5">
+                          {COLORS.map((c) => (
+                            <button
+                              key={c}
+                              onClick={() => updateRole(r.id, { color: c })}
+                              aria-label={`Renk ${c}`}
+                              className={cn("size-6 rounded-full ring-offset-2 ring-offset-background", r.color === c && "ring-2 ring-foreground")}
+                              style={{ backgroundColor: c }}
+                            />
+                          ))}
+                        </div>
+                      )}
+                      <div className="space-y-2">
+                        {PERMS.map((perm) => (
+                          <label key={perm.key} className="flex items-center justify-between text-sm">
+                            {perm.label}
+                            <Switch
+                              checked={r[perm.key]}
+                              disabled={!isOwner}
+                              onCheckedChange={(v) => updateRole(r.id, { [perm.key]: v })}
+                            />
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
               {section === "channels" && (
                 <div className="space-y-1">
                   {channels.map((c) => (
                     <div key={c.id} className="flex items-center gap-2 rounded px-2 py-2 hover:bg-accent/50">
                       <Hash className="size-4 text-muted-foreground" />
                       <span className="flex-1 truncate text-sm">{c.name}</span>
-                      {isOwner && (
+                      {canManageChannels && (
                         <>
                           <Button size="sm" variant="ghost" onClick={() => renameChannel(c)}>
                             Yeniden adlandır
@@ -270,7 +390,24 @@ export function ServerSettingsDialog({
                             {m.role === "owner" ? "Sunucu sahibi" : `@${m.profiles?.username}`}
                           </p>
                         </div>
-                        {isOwner && m.role !== "owner" && (
+                        {isOwner && m.role !== "owner" && roles.length > 0 && (
+                          <div className="flex flex-wrap gap-1">
+                            {roles.map((r) => {
+                              const on = m.role_ids.includes(r.id);
+                              return (
+                                <button
+                                  key={r.id}
+                                  onClick={() => toggleMemberRole(m, r)}
+                                  className={cn("rounded px-1.5 py-0.5 text-xs", on ? "bg-accent" : "text-muted-foreground opacity-60 hover:opacity-100")}
+                                  style={on ? { color: r.color } : undefined}
+                                >
+                                  {r.name}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        )}
+                        {canKick && m.role !== "owner" && (
                           <Button size="icon" variant="ghost" onClick={() => kick(m)} title="Sunucudan at">
                             <UserMinus className="size-4 text-destructive" />
                           </Button>

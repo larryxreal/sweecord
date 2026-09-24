@@ -73,6 +73,52 @@ export type Database = {
         }
         Relationships: []
       }
+      member_roles: {
+        Row: {
+          created_at: string
+          id: string
+          role_id: string
+          server_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role_id: string
+          server_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role_id?: string
+          server_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "member_roles_role_id_fkey"
+            columns: ["role_id"]
+            isOneToOne: false
+            referencedRelation: "server_roles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "member_roles_server_id_fkey"
+            columns: ["server_id"]
+            isOneToOne: false
+            referencedRelation: "servers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "member_roles_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       messages: {
         Row: {
           channel_id: string
@@ -101,6 +147,13 @@ export type Database = {
             columns: ["channel_id"]
             isOneToOne: false
             referencedRelation: "channels"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "messages_profile_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -159,7 +212,58 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "server_members_profile_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "server_members_server_id_fkey"
+            columns: ["server_id"]
+            isOneToOne: false
+            referencedRelation: "servers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      server_roles: {
+        Row: {
+          color: string
+          created_at: string
+          id: string
+          kick_members: boolean
+          manage_channels: boolean
+          manage_messages: boolean
+          name: string
+          position: number
+          server_id: string
+        }
+        Insert: {
+          color?: string
+          created_at?: string
+          id?: string
+          kick_members?: boolean
+          manage_channels?: boolean
+          manage_messages?: boolean
+          name: string
+          position?: number
+          server_id: string
+        }
+        Update: {
+          color?: string
+          created_at?: string
+          id?: string
+          kick_members?: boolean
+          manage_channels?: boolean
+          manage_messages?: boolean
+          name?: string
+          position?: number
+          server_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "server_roles_server_id_fkey"
             columns: ["server_id"]
             isOneToOne: false
             referencedRelation: "servers"
@@ -200,6 +304,10 @@ export type Database = {
     }
     Functions: {
       channel_server_id: { Args: { _channel_id: string }; Returns: string }
+      has_server_perm: {
+        Args: { _perm: string; _server_id: string; _user_id: string }
+        Returns: boolean
+      }
       is_server_member: {
         Args: { _server_id: string; _user_id: string }
         Returns: boolean

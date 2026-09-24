@@ -68,3 +68,22 @@ export async function uploadAvatar(userId: string, file: File): Promise<string> 
   if (signErr || !data) throw signErr ?? new Error("Bağlantı oluşturulamadı");
   return data.signedUrl;
 }
+
+export type ServerRole = {
+  id: string;
+  server_id: string;
+  name: string;
+  color: string;
+  position: number;
+  manage_channels: boolean;
+  manage_messages: boolean;
+  kick_members: boolean;
+  created_at: string;
+};
+
+export type ServerMember = {
+  user_id: string;
+  role: string;
+  role_ids: string[];
+  profiles: Pick<Profile, "id" | "username" | "display_name" | "avatar_url" | "status">;
+};

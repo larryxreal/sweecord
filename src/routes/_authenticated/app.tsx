@@ -41,6 +41,7 @@ import { UserAvatar } from "@/components/sweecord/UserAvatar";
 import { ProfileDialog } from "@/components/sweecord/ProfileDialog";
 import { FriendsPanel } from "@/components/sweecord/FriendsPanel";
 import { ServerSettingsDialog } from "@/components/sweecord/ServerSettingsDialog";
+import { MemberProfileDialog } from "@/components/sweecord/MemberProfileDialog";
 import {
   formatTime,
   initials,
@@ -49,6 +50,8 @@ import {
   type Message,
   type Profile,
   type Server,
+  type ServerMember,
+  type ServerRole,
 } from "@/lib/sweecord";
 import { cn } from "@/lib/utils";
 
@@ -160,33 +163,76 @@ function AppPage() {
   }, [channels, channelId]);
 
   /* ---------------- members ---------------- */
+  const rolesQuery = useQuery({
+    queryKey: ["roles", serverId],
+    enabled: !!serverId,
+    queryFn: async (): Promise<ServerRole[]> => {
+      const { data, error } = await supabase
+        .from("server_roles")
+        .select("*")
+        .eq("server_id", serverId!)
+        .order("position", { ascending: true })
+        .order("created_at", { ascending: true });
+      if (error) throw error;
+      return (data ?? []) as ServerRole[];
+    },
+  });
+  const roles = useMemo(() => rolesQuery.data ?? [], [rolesQuery.data]);
+
   const membersQuery = useQuery({
     queryKey: ["members", serverId],
     enabled: !!serverId,
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data: rows, error } = await supabase
         .from("server_members")
-        .select("user_id, role, profiles:profiles!inner(id, username, display_name, avatar_url, status)")
+        .select("user_id, role")
         .eq("server_id", serverId!);
       if (error) throw error;
-      return (data ?? []) as unknown as {
-        user_id: string;
-        role: string;
-        profiles: Pick<Profile, "id" | "username" | "display_name" | "avatar_url" | "status">;
-      }[];
+      const ids = (rows ?? []).map((r) => r.user_id);
+      if (ids.length === 0) return [];
+      const [{ data: profs }, { data: mr }] = await Promise.all([
+        supabase.from("profiles").select("id, username, display_name, avatar_url, status").in("id", ids),
+        supabase.from("member_roles").select("user_id, role_id").eq("server_id", serverId!),
+      ]);
+      const pmap = new Map((profs ?? []).map((p) => [p.id, p]));
+      return (rows ?? []).map((r) => ({
+        user_id: r.user_id,
+        role: r.role,
+        role_ids: (mr ?? []).filter((x) => x.user_id === r.user_id).map((x) => x.role_id),
+        profiles: pmap.get(r.user_id) ?? {
+          id: r.user_id,
+          username: "kullanici",
+          display_name: "",
+          avatar_url: null,
+          status: "",
+        },
+      })) as ServerMember[];
     },
   });
   const members = useMemo(() => membersQuery.data ?? [], [membersQuery.data]);
   const memberMap = useMemo(() => {
-    const map = new Map<string, { name: string; avatar: string | null }>();
+    const map = new Map<string, { name: string; avatar: string | null; color: string | null }>();
     for (const m of members) {
+      const top = roles.find((r) => m.role_ids.includes(r.id));
       map.set(m.user_id, {
         name: m.profiles?.display_name || m.profiles?.username || "Üye",
         avatar: m.profiles?.avatar_url ?? null,
+        color: top?.color ?? null,
       });
     }
     return map;
-  }, [members]);
+  }, [members, roles]);
+  const [viewUserId, setViewUserId] = useState<string | null>(null);
+  const viewMember = members.find((m) => m.user_id === viewUserId) ?? null;
+  const myPerms = useMemo(() => {
+    const me = members.find((m) => m.user_id === user.id);
+    const mine = roles.filter((r) => me?.role_ids.includes(r.id));
+    return {
+      manage_messages: mine.some((r) => r.manage_messages),
+      manage_channels: mine.some((r) => r.manage_channels),
+      kick_members: mine.some((r) => r.kick_members),
+    };
+  }, [members, roles, user.id]);
 
   /* ---------------- messages ---------------- */
   const messagesQuery = useQuery({
@@ -396,7 +442,7 @@ function AppPage() {
                   <span className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
                     Metin kanalları
                   </span>
-                  {isOwner && (
+                  {(isOwner || myPerms.manage_channels) && (
                     <button
                       onClick={() => setChannelOpen(true)}
                       className="text-muted-foreground hover:text-foreground"
@@ -501,12 +547,14 @@ function AppPage() {
                     const mine = m.user_id === user.id;
                     return (
                       <div key={m.id} className="group flex gap-3">
-                        <UserAvatar name={author?.name ?? "Üye"} url={author?.avatar ?? null} />
+                        <button onClick={() => setViewUserId(m.user_id)} className="shrink-0 self-start">
+                          <UserAvatar name={author?.name ?? "Üye"} url={author?.avatar ?? null} />
+                        </button>
                         <div className="min-w-0 flex-1">
                           <div className="flex items-baseline gap-2">
-                            <span className="text-sm font-semibold">{author?.name ?? "Bilinmeyen üye"}</span>
+                            <button onClick={() => setViewUserId(m.user_id)} className="text-sm font-semibold hover:underline" style={author?.color ? { color: author.color } : undefined}>{author?.name ?? "Eski üye"}</button>
                             <span className="text-xs text-muted-foreground">{formatTime(m.created_at)}</span>
-                            {(mine || isOwner) && (
+                            {(mine || isOwner || myPerms.manage_messages) && (
                               <button
                                 onClick={() => deleteMessage(m.id)}
                                 className="ml-auto text-muted-foreground opacity-0 transition-opacity hover:text-destructive group-hover:opacity-100"
@@ -557,21 +605,21 @@ function AppPage() {
                 </div>
                 <ScrollArea className="flex-1 px-2">
                   {members.map((m) => (
-                    <div key={m.user_id} className="flex items-center gap-2 rounded px-2 py-1.5 hover:bg-sidebar-accent">
+                    <button key={m.user_id} onClick={() => setViewUserId(m.user_id)} className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left hover:bg-sidebar-accent">
                       <UserAvatar
                         name={m.profiles?.display_name || m.profiles?.username || "Üye"}
                         url={m.profiles?.avatar_url ?? null}
                         className="size-8"
                       />
                       <div className="min-w-0">
-                        <p className="truncate text-sm font-medium">
+                        <p className="truncate text-sm font-medium" style={memberMap.get(m.user_id)?.color ? { color: memberMap.get(m.user_id)!.color! } : undefined}>
                           {m.profiles?.display_name || m.profiles?.username}
                         </p>
                         <p className="truncate text-xs text-muted-foreground">
                           {m.role === "owner" ? "Sunucu sahibi" : m.profiles?.status || `@${m.profiles?.username}`}
                         </p>
                       </div>
-                    </div>
+                    </button>
                   ))}
                 </ScrollArea>
               </aside>
@@ -626,11 +674,20 @@ function AppPage() {
         server={activeServer}
         channels={channels}
         members={members}
+        roles={roles}
         isOwner={isOwner}
+        canKick={isOwner || myPerms.kick_members}
+        canManageChannels={isOwner || myPerms.manage_channels}
         onDeleted={() => {
           setServerId(null);
           qc.invalidateQueries({ queryKey: ["servers", user.id] });
         }}
+      />
+      <MemberProfileDialog
+        member={viewMember}
+        roles={roles}
+        isServerOwner={viewMember?.role === "owner"}
+        onOpenChange={(v) => !v && setViewUserId(null)}
       />
     </TooltipProvider>
   );
