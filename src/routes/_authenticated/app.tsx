@@ -41,6 +41,7 @@ import { UserAvatar } from "@/components/sweecord/UserAvatar";
 import { ProfileDialog } from "@/components/sweecord/ProfileDialog";
 import { FriendsPanel } from "@/components/sweecord/FriendsPanel";
 import { ServerSettingsDialog } from "@/components/sweecord/ServerSettingsDialog";
+import { MemberProfileDialog } from "@/components/sweecord/MemberProfileDialog";
 import {
   formatTime,
   initials,
@@ -49,6 +50,8 @@ import {
   type Message,
   type Profile,
   type Server,
+  type ServerMember,
+  type ServerRole,
 } from "@/lib/sweecord";
 import { cn } from "@/lib/utils";
 
@@ -544,12 +547,14 @@ function AppPage() {
                     const mine = m.user_id === user.id;
                     return (
                       <div key={m.id} className="group flex gap-3">
-                        <UserAvatar name={author?.name ?? "Üye"} url={author?.avatar ?? null} />
+                        <button onClick={() => setViewUserId(m.user_id)} className="shrink-0 self-start">
+                          <UserAvatar name={author?.name ?? "Üye"} url={author?.avatar ?? null} />
+                        </button>
                         <div className="min-w-0 flex-1">
                           <div className="flex items-baseline gap-2">
-                            <span className="text-sm font-semibold">{author?.name ?? "Bilinmeyen üye"}</span>
+                            <button onClick={() => setViewUserId(m.user_id)} className="text-sm font-semibold hover:underline" style={author?.color ? { color: author.color } : undefined}>{author?.name ?? "Eski üye"}</button>
                             <span className="text-xs text-muted-foreground">{formatTime(m.created_at)}</span>
-                            {(mine || isOwner) && (
+                            {(mine || isOwner || myPerms.manage_messages) && (
                               <button
                                 onClick={() => deleteMessage(m.id)}
                                 className="ml-auto text-muted-foreground opacity-0 transition-opacity hover:text-destructive group-hover:opacity-100"
@@ -600,21 +605,21 @@ function AppPage() {
                 </div>
                 <ScrollArea className="flex-1 px-2">
                   {members.map((m) => (
-                    <div key={m.user_id} className="flex items-center gap-2 rounded px-2 py-1.5 hover:bg-sidebar-accent">
+                    <button key={m.user_id} onClick={() => setViewUserId(m.user_id)} className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left hover:bg-sidebar-accent">
                       <UserAvatar
                         name={m.profiles?.display_name || m.profiles?.username || "Üye"}
                         url={m.profiles?.avatar_url ?? null}
                         className="size-8"
                       />
                       <div className="min-w-0">
-                        <p className="truncate text-sm font-medium">
+                        <p className="truncate text-sm font-medium" style={memberMap.get(m.user_id)?.color ? { color: memberMap.get(m.user_id)!.color! } : undefined}>
                           {m.profiles?.display_name || m.profiles?.username}
                         </p>
                         <p className="truncate text-xs text-muted-foreground">
                           {m.role === "owner" ? "Sunucu sahibi" : m.profiles?.status || `@${m.profiles?.username}`}
                         </p>
                       </div>
-                    </div>
+                    </button>
                   ))}
                 </ScrollArea>
               </aside>
@@ -669,11 +674,20 @@ function AppPage() {
         server={activeServer}
         channels={channels}
         members={members}
+        roles={roles}
         isOwner={isOwner}
+        canKick={isOwner || myPerms.kick_members}
+        canManageChannels={isOwner || myPerms.manage_channels}
         onDeleted={() => {
           setServerId(null);
           qc.invalidateQueries({ queryKey: ["servers", user.id] });
         }}
+      />
+      <MemberProfileDialog
+        member={viewMember}
+        roles={roles}
+        isServerOwner={viewMember?.role === "owner"}
+        onOpenChange={(v) => !v && setViewUserId(null)}
       />
     </TooltipProvider>
   );
