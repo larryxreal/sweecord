@@ -442,7 +442,7 @@ function AppPage() {
                   <span className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
                     Metin kanalları
                   </span>
-                  {isOwner && (
+                  {(isOwner || myPerms.manage_channels) && (
                     <button
                       onClick={() => setChannelOpen(true)}
                       className="text-muted-foreground hover:text-foreground"
