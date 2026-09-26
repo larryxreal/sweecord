@@ -13,6 +13,7 @@ export type Server = {
   id: string;
   name: string;
   icon_url: string | null;
+  banner_url: string | null;
   owner_id: string;
   invite_code: string;
   created_at: string;
@@ -31,8 +32,44 @@ export type Message = {
   channel_id: string;
   user_id: string;
   content: string;
+  audio_url: string | null;
   created_at: string;
 };
+
+export type DirectMessage = {
+  id: string;
+  sender_id: string;
+  receiver_id: string;
+  content: string;
+  audio_url: string | null;
+  created_at: string;
+};
+
+const IMAGE_TYPES = ["image/png", "image/jpeg", "image/webp", "image/gif"];
+
+/** Upload to the private media bucket and return a long-lived signed URL. */
+export async function uploadMedia(path: string, file: Blob): Promise<string> {
+  const { error } = await supabase.storage.from("media").upload(path, file, {
+    upsert: true,
+    contentType: file.type || undefined,
+  });
+  if (error) throw error;
+  const { data, error: signErr } = await supabase.storage.from("media").createSignedUrl(path, 60 * 60 * 24 * 365 * 10);
+  if (signErr || !data) throw signErr ?? new Error("Bağlantı oluşturulamadı");
+  return data.signedUrl;
+}
+
+export async function uploadServerImage(serverId: string, kind: "icon" | "banner", file: File): Promise<string> {
+  if (!IMAGE_TYPES.includes(file.type)) throw new Error("Sadece PNG, JPG, WEBP veya GIF");
+  if (file.size > 8 * 1024 * 1024) throw new Error("Dosya en fazla 8 MB olabilir");
+  const ext = file.name.split(".").pop()?.toLowerCase() ?? "png";
+  return uploadMedia(`servers/${serverId}/${kind}-${Date.now()}.${ext}`, file);
+}
+
+export async function uploadVoice(userId: string, blob: Blob): Promise<string> {
+  const ext = blob.type.includes("ogg") ? "ogg" : blob.type.includes("mp4") ? "m4a" : "webm";
+  return uploadMedia(`voice/${userId}/${Date.now()}.${ext}`, blob);
+}
 
 export function initials(name: string): string {
   const clean = (name || "?").trim();

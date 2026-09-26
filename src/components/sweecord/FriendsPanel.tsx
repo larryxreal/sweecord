@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Check, UserPlus, UserX, X, Users } from "lucide-react";
+import { Check, MessageCircle, UserPlus, UserX, X, Users } from "lucide-react";
 
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -21,7 +21,7 @@ type FriendRow = {
 
 type Tab = "friends" | "pending" | "add";
 
-export function FriendsPanel({ userId }: { userId: string }) {
+export function FriendsPanel({ userId, onMessage }: { userId: string; onMessage?: (p: Profile) => void }) {
   const qc = useQueryClient();
   const [tab, setTab] = useState<Tab>("friends");
   const [username, setUsername] = useState("");
@@ -209,6 +209,19 @@ export function FriendsPanel({ userId }: { userId: string }) {
               ) : (
                 friends.map((r) => (
                   <Person key={r.id} row={r}>
+                    {onMessage && (
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        title="Mesaj gönder"
+                        onClick={() => {
+                          const p = peopleMap.get(r.sender_id === userId ? r.receiver_id : r.sender_id);
+                          if (p) onMessage(p);
+                        }}
+                      >
+                        <MessageCircle className="size-4" />
+                      </Button>
+                    )}
                     <Button
                       size="icon"
                       variant="ghost"
