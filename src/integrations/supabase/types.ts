@@ -46,6 +46,48 @@ export type Database = {
           },
         ]
       }
+      direct_messages: {
+        Row: {
+          audio_url: string | null
+          content: string
+          created_at: string
+          id: string
+          receiver_id: string
+          sender_id: string
+        }
+        Insert: {
+          audio_url?: string | null
+          content?: string
+          created_at?: string
+          id?: string
+          receiver_id: string
+          sender_id: string
+        }
+        Update: {
+          audio_url?: string | null
+          content?: string
+          created_at?: string
+          id?: string
+          receiver_id?: string
+          sender_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "direct_messages_receiver_id_fkey"
+            columns: ["receiver_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "direct_messages_sender_id_fkey"
+            columns: ["sender_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       friend_requests: {
         Row: {
           created_at: string
@@ -121,6 +163,7 @@ export type Database = {
       }
       messages: {
         Row: {
+          audio_url: string | null
           channel_id: string
           content: string
           created_at: string
@@ -128,6 +171,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          audio_url?: string | null
           channel_id: string
           content: string
           created_at?: string
@@ -135,6 +179,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          audio_url?: string | null
           channel_id?: string
           content?: string
           created_at?: string
@@ -273,6 +318,7 @@ export type Database = {
       }
       servers: {
         Row: {
+          banner_url: string | null
           created_at: string
           icon_url: string | null
           id: string
@@ -281,6 +327,7 @@ export type Database = {
           owner_id: string
         }
         Insert: {
+          banner_url?: string | null
           created_at?: string
           icon_url?: string | null
           id?: string
@@ -289,6 +336,7 @@ export type Database = {
           owner_id: string
         }
         Update: {
+          banner_url?: string | null
           created_at?: string
           icon_url?: string | null
           id?: string
@@ -303,6 +351,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      are_friends: { Args: { _a: string; _b: string }; Returns: boolean }
       channel_server_id: { Args: { _channel_id: string }; Returns: string }
       has_server_perm: {
         Args: { _perm: string; _server_id: string; _user_id: string }
@@ -317,6 +366,15 @@ export type Database = {
         Returns: boolean
       }
       join_server_by_code: { Args: { _code: string }; Returns: string }
+      set_member_role: {
+        Args: {
+          _on: boolean
+          _role_id: string
+          _server_id: string
+          _user_id: string
+        }
+        Returns: undefined
+      }
     }
     Enums: {
       [_ in never]: never
