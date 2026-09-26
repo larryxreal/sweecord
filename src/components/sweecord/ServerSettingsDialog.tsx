@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Copy, Hash, Trash2, UserMinus } from "lucide-react";
+import { Copy, Hash, ImageIcon, Trash2, UserMinus } from "lucide-react";
+import { uploadServerImage } from "@/lib/sweecord";
 
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -116,14 +117,45 @@ export function ServerSettingsDialog({
   async function toggleMemberRole(member: Member, role: ServerRole): Promise<void> {
     if (!server) return;
     const has = member.role_ids.includes(role.id);
-    const { error } = has
-      ? await supabase.from("member_roles").delete().eq("user_id", member.user_id).eq("role_id", role.id)
-      : await supabase.from("member_roles").insert({ server_id: server.id, user_id: member.user_id, role_id: role.id });
+    const { error } = await supabase.rpc("set_member_role", {
+      _server_id: server.id,
+      _user_id: member.user_id,
+      _role_id: role.id,
+      _on: !has,
+    });
     if (error) {
       toast.error("Rol ataması başarısız");
       return;
     }
+    toast.success(has ? "Rol kaldırıldı" : "Rol verildi");
     invalidate();
+  }
+
+  async function onImage(e: React.ChangeEvent<HTMLInputElement>, kind: "icon" | "banner"): Promise<void> {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file || !server) return;
+    setBusy(true);
+    try {
+      const url = await uploadServerImage(server.id, kind, file);
+      const patch = kind === "icon" ? { icon_url: url } : { banner_url: url };
+      const { error } = await supabase.from("servers").update(patch).eq("id", server.id);
+      if (error) throw error;
+      toast.success(kind === "icon" ? "Simge güncellendi" : "Banner güncellendi");
+      invalidate();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Yüklenemedi");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function clearImage(kind: "icon" | "banner"): Promise<void> {
+    if (!server) return;
+    const patch = kind === "icon" ? { icon_url: null } : { banner_url: null };
+    const { error } = await supabase.from("servers").update(patch).eq("id", server.id);
+    if (error) toast.error("Kaldırılamadı");
+    else invalidate();
   }
 
   async function saveName(): Promise<void> {
@@ -244,6 +276,47 @@ export function ServerSettingsDialog({
             <ScrollArea className="max-h-[60vh] pr-2">
               {section === "overview" && (
                 <div className="space-y-5">
+                  <div className="space-y-2">
+                    <Label>Banner ve simge (GIF desteklenir)</Label>
+                    <div className="relative overflow-hidden rounded-lg bg-background">
+                      {server.banner_url ? (
+                        <img src={server.banner_url} alt="" className="h-32 w-full object-cover" />
+                      ) : (
+                        <div className="h-32 w-full bg-primary/30" />
+                      )}
+                      <div className="absolute bottom-2 left-3 size-16 overflow-hidden rounded-2xl border-4 border-card bg-card">
+                        {server.icon_url ? (
+                          <img src={server.icon_url} alt="" className="size-full object-cover" />
+                        ) : (
+                          <div className="flex size-full items-center justify-center font-semibold">
+                            {server.name.slice(0, 2).toUpperCase()}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    {isOwner && (
+                      <div className="flex flex-wrap gap-2">
+                        <Button size="sm" variant="secondary" disabled={busy} asChild>
+                          <label className="cursor-pointer">
+                            <ImageIcon className="size-4" /> Simge yükle
+                            <input type="file" accept="image/png,image/jpeg,image/webp,image/gif" hidden onChange={(e) => onImage(e, "icon")} />
+                          </label>
+                        </Button>
+                        <Button size="sm" variant="secondary" disabled={busy} asChild>
+                          <label className="cursor-pointer">
+                            <ImageIcon className="size-4" /> Banner yükle
+                            <input type="file" accept="image/png,image/jpeg,image/webp,image/gif" hidden onChange={(e) => onImage(e, "banner")} />
+                          </label>
+                        </Button>
+                        {server.icon_url && (
+                          <Button size="sm" variant="ghost" onClick={() => clearImage("icon")}>Simgeyi kaldır</Button>
+                        )}
+                        {server.banner_url && (
+                          <Button size="sm" variant="ghost" onClick={() => clearImage("banner")}>Bannerı kaldır</Button>
+                        )}
+                      </div>
+                    )}
+                  </div>
                   <div className="space-y-2">
                     <Label htmlFor="srv-name">Sunucu adı</Label>
                     <div className="flex gap-2">
@@ -390,7 +463,7 @@ export function ServerSettingsDialog({
                             {m.role === "owner" ? "Sunucu sahibi" : `@${m.profiles?.username}`}
                           </p>
                         </div>
-                        {isOwner && m.role !== "owner" && roles.length > 0 && (
+                        {isOwner && roles.length > 0 && (
                           <div className="flex flex-wrap gap-1">
                             {roles.map((r) => {
                               const on = m.role_ids.includes(r.id);
