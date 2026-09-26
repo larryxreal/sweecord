@@ -42,10 +42,13 @@ import { ProfileDialog } from "@/components/sweecord/ProfileDialog";
 import { FriendsPanel } from "@/components/sweecord/FriendsPanel";
 import { ServerSettingsDialog } from "@/components/sweecord/ServerSettingsDialog";
 import { MemberProfileDialog } from "@/components/sweecord/MemberProfileDialog";
+import { DMPanel } from "@/components/sweecord/DMPanel";
+import { VoiceRecorder } from "@/components/sweecord/VoiceRecorder";
 import {
   formatTime,
   initials,
   slugifyUsername,
+  uploadVoice,
   type Channel,
   type Message,
   type Profile,
@@ -128,6 +131,7 @@ function AppPage() {
   });
   const servers = useMemo(() => serversQuery.data ?? [], [serversQuery.data]);
   const activeServer = servers.find((s) => s.id === serverId) ?? null;
+  const [dmUser, setDmUser] = useState<Profile | null>(null);
 
   useEffect(() => {
     if (!serverId && servers.length) setServerId(servers[0]!.id);
@@ -289,6 +293,20 @@ function AppPage() {
     qc.invalidateQueries({ queryKey: ["messages", channelId] });
   }
 
+  async function sendVoice(blob: Blob) {
+    if (!channelId) return;
+    try {
+      const url = await uploadVoice(user.id, blob);
+      const { error } = await supabase
+        .from("messages")
+        .insert({ channel_id: channelId, user_id: user.id, content: "", audio_url: url });
+      if (error) throw error;
+      qc.invalidateQueries({ queryKey: ["messages", channelId] });
+    } catch {
+      toast.error("Sesli mesaj gönderilemedi");
+    }
+  }
+
   async function deleteMessage(id: string) {
     const { error } = await supabase.from("messages").delete().eq("id", id);
     if (error) toast.error("Mesaj silinemedi");
@@ -368,7 +386,11 @@ function AppPage() {
                           : "bg-card text-foreground hover:bg-primary hover:text-primary-foreground",
                       )}
                     >
-                      {initials(s.name)}
+                      {s.icon_url ? (
+                        <img src={s.icon_url} alt={s.name} className="size-full object-cover" />
+                      ) : (
+                        initials(s.name)
+                      )}
                     </button>
                   </TooltipTrigger>
                   <TooltipContent side="right">{s.name}</TooltipContent>
@@ -402,6 +424,9 @@ function AppPage() {
 
         {/* channels sidebar */}
         <aside className="flex w-60 shrink-0 flex-col bg-sidebar">
+          {activeServer?.banner_url && (
+            <img src={activeServer.banner_url} alt="" className="h-28 w-full shrink-0 object-cover" />
+          )}
           <div className="flex h-12 items-center justify-between border-b border-sidebar-border px-4">
             <span className="truncate text-[15px] font-bold">
               {activeServer ? activeServer.name : "SweeCord"}
@@ -469,13 +494,27 @@ function AppPage() {
               </>
             ) : (
               <>
-                <div className="flex w-full items-center gap-2 rounded bg-sidebar-accent px-2 py-1.5 text-[15px] text-sidebar-accent-foreground">
+                <button
+                  onClick={() => setDmUser(null)}
+                  className={cn(
+                    "flex w-full items-center gap-2 rounded px-2 py-1.5 text-[15px]",
+                    !dmUser ? "bg-sidebar-accent text-sidebar-accent-foreground" : "text-sidebar-foreground hover:bg-sidebar-accent/60",
+                  )}
+                >
                   <Users className="size-4 shrink-0" />
                   <span className="truncate">Arkadaşlar</span>
-                </div>
-                <p className="px-2 py-4 text-sm text-muted-foreground">
-                  Soldan bir sunucu seç ya da yeni bir tane oluştur.
-                </p>
+                </button>
+                {dmUser && (
+                  <>
+                    <p className="px-2 pb-1 pt-4 text-xs font-bold uppercase tracking-wide text-muted-foreground">
+                      Özel mesajlar
+                    </p>
+                    <div className="flex items-center gap-2 rounded bg-sidebar-accent px-2 py-1.5">
+                      <UserAvatar name={dmUser.display_name || dmUser.username} url={dmUser.avatar_url} className="size-7" />
+                      <span className="truncate text-sm">{dmUser.display_name || dmUser.username}</span>
+                    </div>
+                  </>
+                )}
               </>
             )}
           </ScrollArea>
@@ -515,7 +554,11 @@ function AppPage() {
         {/* chat */}
         <main className="flex min-w-0 flex-1 flex-col">
           {!activeServer ? (
-            <FriendsPanel userId={user.id} />
+            dmUser ? (
+              <DMPanel key={dmUser.id} me={profile} other={dmUser} />
+            ) : (
+              <FriendsPanel userId={user.id} onMessage={setDmUser} />
+            )
           ) : (
             <>
           <header className="flex h-12 shrink-0 items-center gap-2 border-b border-border px-4 shadow-panel">
@@ -563,9 +606,12 @@ function AppPage() {
                               </button>
                             )}
                           </div>
-                          <p className="whitespace-pre-wrap break-words text-[15px] leading-relaxed">
-                            {m.content}
-                          </p>
+                          {m.content && (
+                            <p className="whitespace-pre-wrap break-words text-[15px] leading-relaxed">
+                              {m.content}
+                            </p>
+                          )}
+                          {m.audio_url && <audio controls src={m.audio_url} className="mt-1 h-10 max-w-xs" />}
                         </div>
                       </div>
                     );
@@ -586,6 +632,7 @@ function AppPage() {
                     }
                     className="border-0 bg-transparent shadow-none focus-visible:ring-0"
                   />
+                  <VoiceRecorder disabled={!activeChannel} onRecorded={sendVoice} />
                   <button
                     type="submit"
                     disabled={!activeChannel || !draft.trim()}
