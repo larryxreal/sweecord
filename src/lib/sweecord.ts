@@ -51,7 +51,7 @@ const IMAGE_TYPES = ["image/png", "image/jpeg", "image/webp", "image/gif"];
 export async function uploadMedia(path: string, file: Blob): Promise<string> {
   const { error } = await supabase.storage.from("media").upload(path, file, {
     upsert: true,
-    contentType: file.type || undefined,
+    ...(file.type ? { contentType: file.type } : {}),
   });
   if (error) throw error;
   const { data, error: signErr } = await supabase.storage.from("media").createSignedUrl(path, 60 * 60 * 24 * 365 * 10);
