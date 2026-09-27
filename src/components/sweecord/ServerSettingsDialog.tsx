@@ -519,7 +519,7 @@ function ChannelRow({
   const [open, setOpen] = useState(false);
 
   async function setEveryone(key: "everyone_view" | "everyone_send", v: boolean) {
-    const { error } = await supabase.from("channels").update({ [key]: v }).eq("id", c.id);
+    const { error } = await supabase.from("channels").update(key === "everyone_view" ? { everyone_view: v } : { everyone_send: v }).eq("id", c.id);
     if (error) toast.error("İzin kaydedilemedi");
     onChanged();
   }
@@ -531,8 +531,8 @@ function ChannelRow({
       role_id: roleId,
       can_view: cur?.can_view ?? false,
       can_send: cur?.can_send ?? false,
-      [key]: v,
     };
+    row[key] = v;
     if (key === "can_send" && v) row.can_view = true;
     const { error } = await supabase.from("channel_role_perms").upsert(row, { onConflict: "channel_id,role_id" });
     if (error) toast.error("İzin kaydedilemedi");
