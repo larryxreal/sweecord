@@ -13,6 +13,7 @@ import {
   MessagesSquare,
   SendHorizonal,
   DoorOpen,
+  Volume2,
 } from "lucide-react";
 
 import { supabase } from "@/integrations/supabase/client";
@@ -52,6 +53,7 @@ import {
   slugifyUsername,
   uploadVoice,
   type Channel,
+  type ChannelRolePerm,
   type Message,
   type Profile,
   type Server,
@@ -791,6 +793,7 @@ function AppPage() {
         onOpenChange={setSettingsOpen}
         server={activeServer}
         channels={channels}
+        channelPerms={channelPerms}
         members={members}
         roles={roles}
         isOwner={isOwner}
@@ -988,6 +991,7 @@ function CreateChannelDialog({
   onCreated: () => void;
 }) {
   const [name, setName] = useState("");
+  const [kind, setKind] = useState<"text" | "voice">("text");
   const [busy, setBusy] = useState(false);
 
   async function create(): Promise<void> {
@@ -998,7 +1002,7 @@ function CreateChannelDialog({
       return;
     }
     setBusy(true);
-    const { error } = await supabase.from("channels").insert({ server_id: serverId, name: clean });
+    const { error } = await supabase.from("channels").insert({ server_id: serverId, name: clean, type: kind });
     setBusy(false);
     if (error) {
       toast.error("Kanal oluşturulamadı");
@@ -1017,6 +1021,22 @@ function CreateChannelDialog({
           <DialogTitle>Kanal oluştur</DialogTitle>
           <DialogDescription>Konuları ayrı kanallarda topla.</DialogDescription>
         </DialogHeader>
+        <div className="grid grid-cols-2 gap-2">
+          {(["text", "voice"] as const).map((k) => (
+            <button
+              key={k}
+              type="button"
+              onClick={() => setKind(k)}
+              className={cn(
+                "flex items-center gap-2 rounded-md border px-3 py-2 text-sm",
+                kind === k ? "border-primary bg-accent" : "border-border hover:bg-accent/50",
+              )}
+            >
+              {k === "text" ? <Hash className="size-4" /> : <Volume2 className="size-4" />}
+              {k === "text" ? "Metin" : "Ses"}
+            </button>
+          ))}
+        </div>
         <div className="space-y-2">
           <Label htmlFor="channel-name">Kanal adı</Label>
           <Input
