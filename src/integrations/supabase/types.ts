@@ -14,27 +14,75 @@ export type Database = {
   }
   public: {
     Tables: {
+      channel_role_perms: {
+        Row: {
+          can_send: boolean
+          can_view: boolean
+          channel_id: string
+          id: string
+          role_id: string
+        }
+        Insert: {
+          can_send?: boolean
+          can_view?: boolean
+          channel_id: string
+          id?: string
+          role_id: string
+        }
+        Update: {
+          can_send?: boolean
+          can_view?: boolean
+          channel_id?: string
+          id?: string
+          role_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "channel_role_perms_channel_id_fkey"
+            columns: ["channel_id"]
+            isOneToOne: false
+            referencedRelation: "channels"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "channel_role_perms_role_id_fkey"
+            columns: ["role_id"]
+            isOneToOne: false
+            referencedRelation: "server_roles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       channels: {
         Row: {
           created_at: string
+          everyone_send: boolean
+          everyone_view: boolean
           id: string
           name: string
           position: number
           server_id: string
+          type: string
         }
         Insert: {
           created_at?: string
+          everyone_send?: boolean
+          everyone_view?: boolean
           id?: string
           name: string
           position?: number
           server_id: string
+          type?: string
         }
         Update: {
           created_at?: string
+          everyone_send?: boolean
+          everyone_view?: boolean
           id?: string
           name?: string
           position?: number
           server_id?: string
+          type?: string
         }
         Relationships: [
           {
@@ -52,6 +100,7 @@ export type Database = {
           content: string
           created_at: string
           id: string
+          image_url: string | null
           receiver_id: string
           sender_id: string
         }
@@ -60,6 +109,7 @@ export type Database = {
           content?: string
           created_at?: string
           id?: string
+          image_url?: string | null
           receiver_id: string
           sender_id: string
         }
@@ -68,6 +118,7 @@ export type Database = {
           content?: string
           created_at?: string
           id?: string
+          image_url?: string | null
           receiver_id?: string
           sender_id?: string
         }
@@ -168,6 +219,7 @@ export type Database = {
           content: string
           created_at: string
           id: string
+          image_url: string | null
           user_id: string
         }
         Insert: {
@@ -176,6 +228,7 @@ export type Database = {
           content: string
           created_at?: string
           id?: string
+          image_url?: string | null
           user_id: string
         }
         Update: {
@@ -184,6 +237,7 @@ export type Database = {
           content?: string
           created_at?: string
           id?: string
+          image_url?: string | null
           user_id?: string
         }
         Relationships: [
@@ -352,6 +406,10 @@ export type Database = {
     }
     Functions: {
       are_friends: { Args: { _a: string; _b: string }; Returns: boolean }
+      channel_access: {
+        Args: { _channel_id: string; _kind: string; _user_id: string }
+        Returns: boolean
+      }
       channel_server_id: { Args: { _channel_id: string }; Returns: string }
       has_server_perm: {
         Args: { _perm: string; _server_id: string; _user_id: string }

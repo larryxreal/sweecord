@@ -24,7 +24,18 @@ export type Channel = {
   server_id: string;
   name: string;
   position: number;
+  type: string;
+  everyone_view: boolean;
+  everyone_send: boolean;
   created_at: string;
+};
+
+export type ChannelRolePerm = {
+  id: string;
+  channel_id: string;
+  role_id: string;
+  can_view: boolean;
+  can_send: boolean;
 };
 
 export type Message = {
@@ -33,6 +44,7 @@ export type Message = {
   user_id: string;
   content: string;
   audio_url: string | null;
+  image_url?: string | null;
   created_at: string;
 };
 
@@ -42,6 +54,7 @@ export type DirectMessage = {
   receiver_id: string;
   content: string;
   audio_url: string | null;
+  image_url?: string | null;
   created_at: string;
 };
 
@@ -69,6 +82,13 @@ export async function uploadServerImage(serverId: string, kind: "icon" | "banner
 export async function uploadVoice(userId: string, blob: Blob): Promise<string> {
   const ext = blob.type.includes("ogg") ? "ogg" : blob.type.includes("mp4") ? "m4a" : "webm";
   return uploadMedia(`voice/${userId}/${Date.now()}.${ext}`, blob);
+}
+
+export async function uploadChatImage(userId: string, file: File): Promise<string> {
+  if (!IMAGE_TYPES.includes(file.type)) throw new Error("Sadece PNG, JPG, WEBP veya GIF");
+  if (file.size > 8 * 1024 * 1024) throw new Error("Dosya en fazla 8 MB olabilir");
+  const ext = file.name.split(".").pop()?.toLowerCase() ?? "png";
+  return uploadMedia(`images/${userId}/${Date.now()}.${ext}`, file);
 }
 
 export function initials(name: string): string {

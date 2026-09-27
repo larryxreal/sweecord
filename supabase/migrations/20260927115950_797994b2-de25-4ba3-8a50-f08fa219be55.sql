@@ -1,0 +1,1 @@
+REVOKE EXECUTE ON FUNCTION public.channel_access(uuid, uuid, text) FROM anon, public;

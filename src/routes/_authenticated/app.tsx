@@ -13,6 +13,7 @@ import {
   MessagesSquare,
   SendHorizonal,
   DoorOpen,
+  Volume2,
 } from "lucide-react";
 
 import { supabase } from "@/integrations/supabase/client";
@@ -44,12 +45,15 @@ import { ServerSettingsDialog } from "@/components/sweecord/ServerSettingsDialog
 import { MemberProfileDialog } from "@/components/sweecord/MemberProfileDialog";
 import { DMPanel } from "@/components/sweecord/DMPanel";
 import { VoiceRecorder } from "@/components/sweecord/VoiceRecorder";
+import { ImageButton } from "@/components/sweecord/ImageButton";
+import { VoiceRoom } from "@/components/sweecord/VoiceRoom";
 import {
   formatTime,
   initials,
   slugifyUsername,
   uploadVoice,
   type Channel,
+  type ChannelRolePerm,
   type Message,
   type Profile,
   type Server,
@@ -132,9 +136,13 @@ function AppPage() {
   const servers = useMemo(() => serversQuery.data ?? [], [serversQuery.data]);
   const activeServer = servers.find((s) => s.id === serverId) ?? null;
   const [dmUser, setDmUser] = useState<Profile | null>(null);
+  const didInit = useRef(false);
 
   useEffect(() => {
-    if (!serverId && servers.length) setServerId(servers[0]!.id);
+    if (!didInit.current && servers.length) {
+      didInit.current = true;
+      if (!serverId) setServerId(servers[0]!.id);
+    }
     if (serverId && servers.length && !servers.some((s) => s.id === serverId)) {
       setServerId(servers[0]!.id);
     }
@@ -238,6 +246,20 @@ function AppPage() {
     };
   }, [members, roles, user.id]);
 
+  const channelPermsQuery = useQuery({
+    queryKey: ["channel-perms", serverId],
+    enabled: !!serverId && channels.length > 0,
+    queryFn: async (): Promise<ChannelRolePerm[]> => {
+      const { data, error } = await supabase
+        .from("channel_role_perms")
+        .select("*")
+        .in("channel_id", channels.map((c) => c.id));
+      if (error) throw error;
+      return (data ?? []) as ChannelRolePerm[];
+    },
+  });
+  const channelPerms = channelPermsQuery.data ?? [];
+
   /* ---------------- messages ---------------- */
   const messagesQuery = useQuery({
     queryKey: ["messages", channelId],
@@ -307,6 +329,15 @@ function AppPage() {
     }
   }
 
+  async function sendImage(url: string) {
+    if (!channelId) return;
+    const { error } = await supabase
+      .from("messages")
+      .insert({ channel_id: channelId, user_id: user.id, content: "", image_url: url });
+    if (error) toast.error("Fotoğraf gönderilemedi");
+    else qc.invalidateQueries({ queryKey: ["messages", channelId] });
+  }
+
   async function deleteMessage(id: string) {
     const { error } = await supabase.from("messages").delete().eq("id", id);
     if (error) toast.error("Mesaj silinemedi");
@@ -354,6 +385,13 @@ function AppPage() {
   }
 
   const isOwner = activeServer?.owner_id === user.id;
+  const myRoleIds = members.find((m) => m.user_id === user.id)?.role_ids ?? [];
+  const canSend =
+    !activeChannel ||
+    isOwner ||
+    myPerms.manage_channels ||
+    (activeChannel.everyone_view && activeChannel.everyone_send) ||
+    channelPerms.some((p) => p.channel_id === activeChannel.id && p.can_send && p.can_view && myRoleIds.includes(p.role_id));
 
   return (
     <TooltipProvider delayDuration={200}>
@@ -476,7 +514,7 @@ function AppPage() {
                     </button>
                   )}
                 </div>
-                {channels.map((c) => (
+                {channels.filter((c) => c.type !== "voice").map((c) => (
                   <button
                     key={c.id}
                     onClick={() => setChannelId(c.id)}
@@ -488,6 +526,24 @@ function AppPage() {
                     )}
                   >
                     <Hash className="size-4 shrink-0 text-muted-foreground" />
+                    <span className="truncate">{c.name}</span>
+                  </button>
+                ))}
+                <p className="px-2 pb-1 pt-4 text-xs font-bold uppercase tracking-wide text-muted-foreground">
+                  Ses kanalları
+                </p>
+                {channels.filter((c) => c.type === "voice").map((c) => (
+                  <button
+                    key={c.id}
+                    onClick={() => setChannelId(c.id)}
+                    className={cn(
+                      "mt-0.5 flex w-full items-center gap-1.5 rounded px-2 py-1.5 text-[15px] transition-colors",
+                      c.id === channelId
+                        ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                        : "text-sidebar-foreground hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground",
+                    )}
+                  >
+                    <Volume2 className="size-4 shrink-0 text-muted-foreground" />
                     <span className="truncate">{c.name}</span>
                   </button>
                 ))}
@@ -559,6 +615,13 @@ function AppPage() {
             ) : (
               <FriendsPanel userId={user.id} onMessage={setDmUser} />
             )
+          ) : activeChannel?.type === "voice" ? (
+            <VoiceRoom
+              key={activeChannel.id}
+              channelId={activeChannel.id}
+              channelName={activeChannel.name}
+              me={{ id: user.id, name: profile.display_name || profile.username, avatar: profile.avatar_url }}
+            />
           ) : (
             <>
           <header className="flex h-12 shrink-0 items-center gap-2 border-b border-border px-4 shadow-panel">
@@ -611,6 +674,11 @@ function AppPage() {
                               {m.content}
                             </p>
                           )}
+                          {m.image_url && (
+                            <a href={m.image_url} target="_blank" rel="noreferrer">
+                              <img src={m.image_url} alt="" className="mt-1 max-h-80 max-w-sm rounded-md object-contain" />
+                            </a>
+                          )}
                           {m.audio_url && <audio controls src={m.audio_url} className="mt-1 h-10 max-w-xs" />}
                         </div>
                       </div>
@@ -625,14 +693,19 @@ function AppPage() {
                   <Input
                     value={draft}
                     onChange={(e) => setDraft(e.target.value)}
-                    disabled={!activeChannel}
+                    disabled={!activeChannel || !canSend}
                     maxLength={2000}
                     placeholder={
-                      activeChannel ? `#${activeChannel.name} kanalına mesaj gönder` : "Önce bir kanal seç"
+                      !activeChannel
+                        ? "Önce bir kanal seç"
+                        : canSend
+                          ? `#${activeChannel.name} kanalına mesaj gönder`
+                          : "Bu kanala mesaj gönderme iznin yok"
                     }
                     className="border-0 bg-transparent shadow-none focus-visible:ring-0"
                   />
-                  <VoiceRecorder disabled={!activeChannel} onRecorded={sendVoice} />
+                  <ImageButton userId={user.id} disabled={!activeChannel || !canSend} onUploaded={sendImage} />
+                  <VoiceRecorder disabled={!activeChannel || !canSend} onRecorded={sendVoice} />
                   <button
                     type="submit"
                     disabled={!activeChannel || !draft.trim()}
@@ -720,6 +793,7 @@ function AppPage() {
         onOpenChange={setSettingsOpen}
         server={activeServer}
         channels={channels}
+        channelPerms={channelPerms}
         members={members}
         roles={roles}
         isOwner={isOwner}
@@ -917,6 +991,7 @@ function CreateChannelDialog({
   onCreated: () => void;
 }) {
   const [name, setName] = useState("");
+  const [kind, setKind] = useState<"text" | "voice">("text");
   const [busy, setBusy] = useState(false);
 
   async function create(): Promise<void> {
@@ -927,7 +1002,7 @@ function CreateChannelDialog({
       return;
     }
     setBusy(true);
-    const { error } = await supabase.from("channels").insert({ server_id: serverId, name: clean });
+    const { error } = await supabase.from("channels").insert({ server_id: serverId, name: clean, type: kind });
     setBusy(false);
     if (error) {
       toast.error("Kanal oluşturulamadı");
@@ -946,6 +1021,22 @@ function CreateChannelDialog({
           <DialogTitle>Kanal oluştur</DialogTitle>
           <DialogDescription>Konuları ayrı kanallarda topla.</DialogDescription>
         </DialogHeader>
+        <div className="grid grid-cols-2 gap-2">
+          {(["text", "voice"] as const).map((k) => (
+            <button
+              key={k}
+              type="button"
+              onClick={() => setKind(k)}
+              className={cn(
+                "flex items-center gap-2 rounded-md border px-3 py-2 text-sm",
+                kind === k ? "border-primary bg-accent" : "border-border hover:bg-accent/50",
+              )}
+            >
+              {k === "text" ? <Hash className="size-4" /> : <Volume2 className="size-4" />}
+              {k === "text" ? "Metin" : "Ses"}
+            </button>
+          ))}
+        </div>
         <div className="space-y-2">
           <Label htmlFor="channel-name">Kanal adı</Label>
           <Input

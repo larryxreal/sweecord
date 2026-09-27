@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Copy, Hash, ImageIcon, Trash2, UserMinus } from "lucide-react";
+import { Copy, Hash, ImageIcon, Trash2, UserMinus, Volume2 } from "lucide-react";
 import { uploadServerImage } from "@/lib/sweecord";
 
 import { supabase } from "@/integrations/supabase/client";
@@ -18,7 +18,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { UserAvatar } from "@/components/sweecord/UserAvatar";
-import type { Channel, Server, ServerMember, ServerRole } from "@/lib/sweecord";
+import type { Channel, ChannelRolePerm, Server, ServerMember, ServerRole } from "@/lib/sweecord";
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
 
@@ -38,6 +38,7 @@ export function ServerSettingsDialog({
   onOpenChange,
   server,
   channels,
+  channelPerms = [],
   members,
   roles,
   isOwner,
@@ -49,6 +50,7 @@ export function ServerSettingsDialog({
   onOpenChange: (v: boolean) => void;
   server: Server | null;
   channels: Channel[];
+  channelPerms?: ChannelRolePerm[];
   members: Member[];
   roles: ServerRole[];
   isOwner: boolean;
@@ -429,20 +431,19 @@ export function ServerSettingsDialog({
               {section === "channels" && (
                 <div className="space-y-1">
                   {channels.map((c) => (
-                    <div key={c.id} className="flex items-center gap-2 rounded px-2 py-2 hover:bg-accent/50">
-                      <Hash className="size-4 text-muted-foreground" />
-                      <span className="flex-1 truncate text-sm">{c.name}</span>
-                      {canManageChannels && (
-                        <>
-                          <Button size="sm" variant="ghost" onClick={() => renameChannel(c)}>
-                            Yeniden adlandır
-                          </Button>
-                          <Button size="icon" variant="ghost" onClick={() => deleteChannel(c)}>
-                            <Trash2 className="size-4 text-destructive" />
-                          </Button>
-                        </>
-                      )}
-                    </div>
+                    <ChannelRow
+                      key={c.id}
+                      channel={c}
+                      roles={roles}
+                      perms={channelPerms.filter((p) => p.channel_id === c.id)}
+                      canManage={canManageChannels}
+                      onRename={() => renameChannel(c)}
+                      onDelete={() => deleteChannel(c)}
+                      onChanged={() => {
+                        invalidate();
+                        qc.invalidateQueries({ queryKey: ["channel-perms", server.id] });
+                      }}
+                    />
                   ))}
                   {channels.length === 0 && (
                     <p className="text-sm text-muted-foreground">Henüz kanal yok.</p>
@@ -495,5 +496,97 @@ export function ServerSettingsDialog({
         </div>
       </DialogContent>
     </Dialog>
+  );
+}
+
+function ChannelRow({
+  channel: c,
+  roles,
+  perms,
+  canManage,
+  onRename,
+  onDelete,
+  onChanged,
+}: {
+  channel: Channel;
+  roles: ServerRole[];
+  perms: ChannelRolePerm[];
+  canManage: boolean;
+  onRename: () => void;
+  onDelete: () => void;
+  onChanged: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+
+  async function setEveryone(key: "everyone_view" | "everyone_send", v: boolean) {
+    const { error } = await supabase.from("channels").update({ [key]: v }).eq("id", c.id);
+    if (error) toast.error("İzin kaydedilemedi");
+    onChanged();
+  }
+
+  async function setRole(roleId: string, key: "can_view" | "can_send", v: boolean) {
+    const cur = perms.find((p) => p.role_id === roleId);
+    const row = {
+      channel_id: c.id,
+      role_id: roleId,
+      can_view: cur?.can_view ?? false,
+      can_send: cur?.can_send ?? false,
+      [key]: v,
+    };
+    if (key === "can_send" && v) row.can_view = true;
+    const { error } = await supabase.from("channel_role_perms").upsert(row, { onConflict: "channel_id,role_id" });
+    if (error) toast.error("İzin kaydedilemedi");
+    onChanged();
+  }
+
+  return (
+    <div className="rounded hover:bg-accent/30">
+      <div className="flex items-center gap-2 px-2 py-2">
+        {c.type === "voice" ? (
+          <Volume2 className="size-4 text-muted-foreground" />
+        ) : (
+          <Hash className="size-4 text-muted-foreground" />
+        )}
+        <span className="flex-1 truncate text-sm">{c.name}</span>
+        {canManage && (
+          <>
+            <Button size="sm" variant="ghost" onClick={() => setOpen((o) => !o)}>
+              İzinler
+            </Button>
+            <Button size="sm" variant="ghost" onClick={onRename}>
+              Yeniden adlandır
+            </Button>
+            <Button size="icon" variant="ghost" onClick={onDelete}>
+              <Trash2 className="size-4 text-destructive" />
+            </Button>
+          </>
+        )}
+      </div>
+      {open && canManage && (
+        <div className="space-y-2 border-t border-border px-4 py-3 text-sm">
+          <p className="text-xs text-muted-foreground">
+            Sahip ve "Kanalları yönet" izni olanlar her zaman erişebilir.
+          </p>
+          <div className="grid grid-cols-[1fr_auto_auto] items-center gap-x-6 gap-y-2">
+            <span className="text-xs font-bold uppercase text-muted-foreground">Kim</span>
+            <span className="text-xs font-bold uppercase text-muted-foreground">Görebilir</span>
+            <span className="text-xs font-bold uppercase text-muted-foreground">Yazabilir</span>
+            <span>@herkes</span>
+            <Switch checked={c.everyone_view} onCheckedChange={(v) => setEveryone("everyone_view", v)} />
+            <Switch checked={c.everyone_send} onCheckedChange={(v) => setEveryone("everyone_send", v)} />
+            {roles.map((r) => {
+              const p = perms.find((x) => x.role_id === r.id);
+              return (
+                <div key={r.id} className="contents">
+                  <span style={{ color: r.color }}>{r.name}</span>
+                  <Switch checked={!!p?.can_view} onCheckedChange={(v) => setRole(r.id, "can_view", v)} />
+                  <Switch checked={!!p?.can_send} onCheckedChange={(v) => setRole(r.id, "can_send", v)} />
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
