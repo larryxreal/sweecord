@@ -120,13 +120,13 @@ export function VoiceRoom({
         await chRef.current?.track({ ...me, inCall: true });
       }
     });
-    (window as unknown as { __voiceCh?: RealtimeChannel }).__voiceCh = ch;
+    (window as unknown as { __voiceCh?: RealtimeChannel | undefined }).__voiceCh = ch;
     setJoined(true);
     setMuted(false);
   }
 
   async function leave() {
-    const w = window as unknown as { __voiceCh?: RealtimeChannel };
+    const w = window as unknown as { __voiceCh?: RealtimeChannel | undefined };
     if (w.__voiceCh) await supabase.removeChannel(w.__voiceCh);
     w.__voiceCh = undefined;
     for (const id of [...pcs.current.keys()]) closePeer(id);
