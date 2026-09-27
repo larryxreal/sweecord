@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { UserAvatar } from "@/components/sweecord/UserAvatar";
 import { VoiceRecorder } from "@/components/sweecord/VoiceRecorder";
+import { ImageButton } from "@/components/sweecord/ImageButton";
 import { formatTime, uploadVoice, type DirectMessage, type Profile } from "@/lib/sweecord";
 
 export function DMPanel({ me, other }: { me: Profile; other: Profile }) {
@@ -48,10 +49,10 @@ export function DMPanel({ me, other }: { me: Profile; other: Profile }) {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [msgs.length]);
 
-  async function send(content: string, audio_url: string | null = null) {
+  async function send(content: string, audio_url: string | null = null, image_url: string | null = null) {
     const { error } = await supabase
       .from("direct_messages")
-      .insert({ sender_id: me.id, receiver_id: other.id, content, audio_url });
+      .insert({ sender_id: me.id, receiver_id: other.id, content, audio_url, image_url });
     if (error) {
       toast.error("Mesaj gönderilemedi (arkadaş olmalısınız)");
       return false;
@@ -116,6 +117,11 @@ export function DMPanel({ me, other }: { me: Profile; other: Profile }) {
                     )}
                   </div>
                   {m.content && <p className="whitespace-pre-wrap break-words text-[15px] leading-relaxed">{m.content}</p>}
+                  {m.image_url && (
+                    <a href={m.image_url} target="_blank" rel="noreferrer">
+                      <img src={m.image_url} alt="" className="mt-1 max-h-80 max-w-sm rounded-md object-contain" />
+                    </a>
+                  )}
                   {m.audio_url && <audio controls src={m.audio_url} className="mt-1 h-10 max-w-xs" />}
                 </div>
               </div>
@@ -133,6 +139,7 @@ export function DMPanel({ me, other }: { me: Profile; other: Profile }) {
             placeholder={`@${other.username} kullanıcısına mesaj gönder`}
             className="border-0 bg-transparent shadow-none focus-visible:ring-0"
           />
+          <ImageButton userId={me.id} onUploaded={async (u) => void (await send("", null, u))} />
           <VoiceRecorder onRecorded={onVoice} />
           <button type="submit" disabled={!draft.trim()} className="text-muted-foreground hover:text-primary disabled:opacity-40">
             <SendHorizonal className="size-5" />
