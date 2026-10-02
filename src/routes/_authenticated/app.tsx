@@ -1025,15 +1025,18 @@ function CreateChannelDialog({
   open,
   onOpenChange,
   serverId,
+  categories,
   onCreated,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   serverId: string | null;
+  categories: ChannelCategory[];
   onCreated: () => void;
 }) {
   const [name, setName] = useState("");
   const [kind, setKind] = useState<"text" | "voice">("text");
+  const [categoryId, setCategoryId] = useState("");
   const [busy, setBusy] = useState(false);
 
   async function create(): Promise<void> {
@@ -1044,7 +1047,7 @@ function CreateChannelDialog({
       return;
     }
     setBusy(true);
-    const { error } = await supabase.from("channels").insert({ server_id: serverId, name: clean, type: kind });
+    const { error } = await supabase.from("channels").insert({ server_id: serverId, name: clean, type: kind, category_id: categoryId || null });
     setBusy(false);
     if (error) {
       toast.error("Kanal oluşturulamadı");
@@ -1052,6 +1055,7 @@ function CreateChannelDialog({
     }
     toast.success("Kanal oluşturuldu");
     setName("");
+    setCategoryId("");
     onOpenChange(false);
     onCreated();
   }
@@ -1090,6 +1094,13 @@ function CreateChannelDialog({
             className="border-0 bg-input"
           />
         </div>
+        <div className="space-y-2">
+          <Label htmlFor="channel-category">Kategori</Label>
+          <select id="channel-category" value={categoryId} onChange={(e) => setCategoryId(e.target.value)} className="h-9 w-full rounded-md border border-border bg-input px-3 text-sm text-foreground">
+            <option value="">Kategorisiz</option>
+            {categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}
+          </select>
+        </div>
         <DialogFooter>
           <Button variant="ghost" onClick={() => onOpenChange(false)}>
             Vazgeç
@@ -1098,6 +1109,36 @@ function CreateChannelDialog({
             Oluştur
           </Button>
         </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function CreateCategoryDialog({ open, onOpenChange, serverId, position, onCreated }: {
+  open: boolean;
+  onOpenChange: (value: boolean) => void;
+  serverId: string | null;
+  position: number;
+  onCreated: () => void;
+}) {
+  const [name, setName] = useState("");
+  const [busy, setBusy] = useState(false);
+  async function create() {
+    if (!serverId || !name.trim()) return;
+    setBusy(true);
+    const { error } = await supabase.from("channel_categories").insert({ server_id: serverId, name: name.trim().slice(0, 50), position });
+    setBusy(false);
+    if (error) { toast.error("Kategori oluşturulamadı"); return; }
+    setName("");
+    onOpenChange(false);
+    onCreated();
+  }
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="bg-card sm:max-w-md">
+        <DialogHeader><DialogTitle>Kategori oluştur</DialogTitle></DialogHeader>
+        <div className="space-y-2"><Label htmlFor="category-name">Kategori adı</Label><Input id="category-name" value={name} onChange={(e) => setName(e.target.value)} maxLength={50} onKeyDown={(e) => { if (e.key === "Enter") void create(); }} /></div>
+        <DialogFooter><Button variant="ghost" onClick={() => onOpenChange(false)}>Vazgeç</Button><Button disabled={busy || !name.trim()} onClick={create}>Oluştur</Button></DialogFooter>
       </DialogContent>
     </Dialog>
   );
