@@ -14,6 +14,9 @@ import {
   SendHorizonal,
   DoorOpen,
   Volume2,
+  ChevronDown,
+  ChevronRight,
+  FolderPlus,
 } from "lucide-react";
 
 import { supabase } from "@/integrations/supabase/client";
@@ -47,12 +50,14 @@ import { DMPanel } from "@/components/sweecord/DMPanel";
 import { VoiceRecorder } from "@/components/sweecord/VoiceRecorder";
 import { ImageButton } from "@/components/sweecord/ImageButton";
 import { VoiceRoom } from "@/components/sweecord/VoiceRoom";
+import { VoiceRoster } from "@/components/sweecord/VoiceRoster";
 import {
   formatTime,
   initials,
   slugifyUsername,
   uploadVoice,
   type Channel,
+  type ChannelCategory,
   type ChannelRolePerm,
   type Message,
   type Profile,
@@ -86,6 +91,8 @@ function AppPage() {
   const [joinOpen, setJoinOpen] = useState(false);
   const [inviteOpen, setInviteOpen] = useState(false);
   const [channelOpen, setChannelOpen] = useState(false);
+  const [categoryOpen, setCategoryOpen] = useState(false);
+  const [collapsedCategories, setCollapsedCategories] = useState<string[]>([]);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [draft, setDraft] = useState("");
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -136,6 +143,28 @@ function AppPage() {
   const servers = useMemo(() => serversQuery.data ?? [], [serversQuery.data]);
   const activeServer = servers.find((s) => s.id === serverId) ?? null;
   const [dmUser, setDmUser] = useState<Profile | null>(null);
+  const conversationsQuery = useQuery({
+    queryKey: ["dm-conversations", user.id],
+    queryFn: async (): Promise<Profile[]> => {
+      const { data: messages, error } = await supabase.from("direct_messages")
+        .select("sender_id,receiver_id").order("created_at", { ascending: false }).limit(1000);
+      if (error) throw error;
+      const ids = [...new Set((messages ?? []).map((m) => m.sender_id === user.id ? m.receiver_id : m.sender_id))];
+      if (!ids.length) return [];
+      const { data: profiles, error: profileError } = await supabase.from("profiles").select("*").in("id", ids);
+      if (profileError) throw profileError;
+      const byId = new Map((profiles ?? []).map((p) => [p.id, p as Profile]));
+      return ids.map((id) => byId.get(id)).filter((p): p is Profile => Boolean(p));
+    },
+  });
+  const conversations = conversationsQuery.data ?? [];
+  useEffect(() => {
+    const channel = supabase.channel(`dm-list-${user.id}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "direct_messages" }, () => {
+        qc.invalidateQueries({ queryKey: ["dm-conversations", user.id] });
+      }).subscribe();
+    return () => { void supabase.removeChannel(channel); };
+  }, [user.id, qc]);
   const didInit = useRef(false);
 
   useEffect(() => {
@@ -164,6 +193,17 @@ function AppPage() {
     },
   });
   const channels = useMemo(() => channelsQuery.data ?? [], [channelsQuery.data]);
+  const categoriesQuery = useQuery({
+    queryKey: ["channel-categories", serverId],
+    enabled: !!serverId,
+    queryFn: async (): Promise<ChannelCategory[]> => {
+      const { data, error } = await supabase.from("channel_categories").select("id,server_id,name,position")
+        .eq("server_id", serverId ?? "").order("position").order("created_at");
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+  const categories = categoriesQuery.data ?? [];
   const activeChannel = channels.find((c) => c.id === channelId) ?? null;
 
   useEffect(() => {
@@ -393,6 +433,23 @@ function AppPage() {
     (activeChannel.everyone_view && activeChannel.everyone_send) ||
     channelPerms.some((p) => p.channel_id === activeChannel.id && p.can_send && p.can_view && myRoleIds.includes(p.role_id));
 
+  const renderChannel = (c: Channel) => (
+    <div key={c.id}>
+      <Button
+        variant="ghost"
+        onClick={() => setChannelId(c.id)}
+        className={cn(
+          "mt-0.5 flex h-auto w-full justify-start gap-1.5 px-2 py-1.5 text-[15px] font-normal",
+          c.id === channelId ? "bg-sidebar-accent text-sidebar-accent-foreground" : "text-sidebar-foreground hover:bg-sidebar-accent/60",
+        )}
+      >
+        {c.type === "voice" ? <Volume2 className="size-4 shrink-0 text-muted-foreground" /> : <Hash className="size-4 shrink-0 text-muted-foreground" />}
+        <span className="truncate">{c.name}</span>
+      </Button>
+      {c.type === "voice" && <VoiceRoster channelId={c.id} />}
+    </div>
+  );
+
   return (
     <TooltipProvider delayDuration={200}>
       <div className="flex h-screen overflow-hidden bg-background">
@@ -483,9 +540,14 @@ function AppPage() {
                   <DropdownMenuItem onClick={() => setSettingsOpen(true)}>
                     <Settings className="size-4" /> Sunucu ayarları
                   </DropdownMenuItem>
-                  {isOwner && (
+                  {(isOwner || myPerms.manage_channels) && (
                     <DropdownMenuItem onClick={() => setChannelOpen(true)}>
                       <Plus className="size-4" /> Kanal oluştur
+                    </DropdownMenuItem>
+                  )}
+                  {(isOwner || myPerms.manage_channels) && (
+                    <DropdownMenuItem onClick={() => setCategoryOpen(true)}>
+                      <FolderPlus className="size-4" /> Kategori oluştur
                     </DropdownMenuItem>
                   )}
                   <DropdownMenuSeparator />
@@ -514,38 +576,19 @@ function AppPage() {
                     </button>
                   )}
                 </div>
-                {channels.filter((c) => c.type !== "voice").map((c) => (
-                  <button
-                    key={c.id}
-                    onClick={() => setChannelId(c.id)}
-                    className={cn(
-                      "mt-0.5 flex w-full items-center gap-1.5 rounded px-2 py-1.5 text-[15px] transition-colors",
-                      c.id === channelId
-                        ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                        : "text-sidebar-foreground hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground",
-                    )}
-                  >
-                    <Hash className="size-4 shrink-0 text-muted-foreground" />
-                    <span className="truncate">{c.name}</span>
-                  </button>
-                ))}
+                {channels.filter((c) => c.type !== "voice" && !c.category_id).map(renderChannel)}
                 <p className="px-2 pb-1 pt-4 text-xs font-bold uppercase tracking-wide text-muted-foreground">
                   Ses kanalları
                 </p>
-                {channels.filter((c) => c.type === "voice").map((c) => (
-                  <button
-                    key={c.id}
-                    onClick={() => setChannelId(c.id)}
-                    className={cn(
-                      "mt-0.5 flex w-full items-center gap-1.5 rounded px-2 py-1.5 text-[15px] transition-colors",
-                      c.id === channelId
-                        ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                        : "text-sidebar-foreground hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground",
-                    )}
-                  >
-                    <Volume2 className="size-4 shrink-0 text-muted-foreground" />
-                    <span className="truncate">{c.name}</span>
-                  </button>
+                {channels.filter((c) => c.type === "voice" && !c.category_id).map(renderChannel)}
+                {categories.map((category) => (
+                  <div key={category.id} className="pt-4">
+                    <Button variant="ghost" className="h-auto w-full justify-start gap-1 px-2 py-1 text-xs font-bold uppercase text-muted-foreground" onClick={() => setCollapsedCategories((old) => old.includes(category.id) ? old.filter((id) => id !== category.id) : [...old, category.id])}>
+                      {collapsedCategories.includes(category.id) ? <ChevronRight className="size-3" /> : <ChevronDown className="size-3" />}
+                      <span className="truncate">{category.name}</span>
+                    </Button>
+                    {!collapsedCategories.includes(category.id) && channels.filter((c) => c.category_id === category.id).map(renderChannel)}
+                  </div>
                 ))}
               </>
             ) : (
@@ -560,17 +603,13 @@ function AppPage() {
                   <Users className="size-4 shrink-0" />
                   <span className="truncate">Arkadaşlar</span>
                 </button>
-                {dmUser && (
-                  <>
-                    <p className="px-2 pb-1 pt-4 text-xs font-bold uppercase tracking-wide text-muted-foreground">
-                      Özel mesajlar
-                    </p>
-                    <div className="flex items-center gap-2 rounded bg-sidebar-accent px-2 py-1.5">
-                      <UserAvatar name={dmUser.display_name || dmUser.username} url={dmUser.avatar_url} className="size-7" />
-                      <span className="truncate text-sm">{dmUser.display_name || dmUser.username}</span>
-                    </div>
-                  </>
-                )}
+                <p className="px-2 pb-1 pt-4 text-xs font-bold uppercase tracking-wide text-muted-foreground">Özel mesajlar</p>
+                {[...(dmUser && !conversations.some((p) => p.id === dmUser.id) ? [dmUser] : []), ...conversations].map((person) => (
+                  <Button key={person.id} variant="ghost" onClick={() => setDmUser(person)} className={cn("mt-0.5 flex h-auto w-full justify-start gap-2 px-2 py-1.5 font-normal", dmUser?.id === person.id ? "bg-sidebar-accent text-sidebar-accent-foreground" : "text-sidebar-foreground hover:bg-sidebar-accent/60")}>
+                    <UserAvatar name={person.display_name || person.username} url={person.avatar_url} className="size-7 shrink-0" />
+                    <span className="truncate text-sm">{person.display_name || person.username}</span>
+                  </Button>
+                ))}
               </>
             )}
           </ScrollArea>
@@ -785,14 +824,17 @@ function AppPage() {
         open={channelOpen}
         onOpenChange={setChannelOpen}
         serverId={serverId}
+        categories={categories}
         onCreated={() => qc.invalidateQueries({ queryKey: ["channels", serverId] })}
       />
+      <CreateCategoryDialog open={categoryOpen} onOpenChange={setCategoryOpen} serverId={serverId} position={categories.length} onCreated={() => qc.invalidateQueries({ queryKey: ["channel-categories", serverId] })} />
 
       <ServerSettingsDialog
         open={settingsOpen}
         onOpenChange={setSettingsOpen}
         server={activeServer}
         channels={channels}
+        categories={categories}
         channelPerms={channelPerms}
         members={members}
         roles={roles}
