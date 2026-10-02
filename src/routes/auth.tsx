@@ -21,6 +21,8 @@ export const Route = createFileRoute("/auth")({
       { title: "Giriş yap — SweeCord" },
       { name: "description", content: "SweeCord hesabınla giriş yap veya yeni hesap oluştur." },
       { property: "og:title", content: "Giriş yap — SweeCord" },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
       { property: "og:description", content: "SweeCord hesabınla giriş yap veya yeni hesap oluştur." },
     ],
   }),

@@ -73,6 +73,8 @@ export const Route = createFileRoute("/_authenticated/app")({
       { title: "Sohbet — SweeCord" },
       { name: "description", content: "Sunucularını, kanallarını ve sohbetlerini yönet." },
       { property: "og:title", content: "Sohbet — SweeCord" },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
       { property: "og:description", content: "Sunucularını, kanallarını ve sohbetlerini yönet." },
     ],
   }),
