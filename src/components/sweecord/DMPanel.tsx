@@ -58,6 +58,7 @@ export function DMPanel({ me, other }: { me: Profile; other: Profile }) {
       return false;
     }
     qc.invalidateQueries({ queryKey: key });
+    qc.invalidateQueries({ queryKey: ["dm-conversations", me.id] });
     return true;
   }
 

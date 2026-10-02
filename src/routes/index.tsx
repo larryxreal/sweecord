@@ -11,6 +11,8 @@ export const Route = createFileRoute("/")({
           "SweeCord ile kendi sunucunu kur, kanallar aç ve arkadaşlarınla anlık sohbet et.",
       },
       { property: "og:title", content: "SweeCord — İnsanlarla sohbet et" },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
       {
         property: "og:description",
         content: "Sunucunu kur, kanallar aç, arkadaşlarınla anlık sohbet et.",

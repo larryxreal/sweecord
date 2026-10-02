@@ -22,12 +22,20 @@ export type Server = {
 export type Channel = {
   id: string;
   server_id: string;
+  category_id: string | null;
   name: string;
   position: number;
   type: string;
   everyone_view: boolean;
   everyone_send: boolean;
   created_at: string;
+};
+
+export type ChannelCategory = {
+  id: string;
+  server_id: string;
+  name: string;
+  position: number;
 };
 
 export type ChannelRolePerm = {
