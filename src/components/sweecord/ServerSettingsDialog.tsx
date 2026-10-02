@@ -18,7 +18,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { UserAvatar } from "@/components/sweecord/UserAvatar";
-import type { Channel, ChannelRolePerm, Server, ServerMember, ServerRole } from "@/lib/sweecord";
+import type { Channel, ChannelCategory, ChannelRolePerm, Server, ServerMember, ServerRole } from "@/lib/sweecord";
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
 
@@ -38,6 +38,7 @@ export function ServerSettingsDialog({
   onOpenChange,
   server,
   channels,
+  categories,
   channelPerms = [],
   members,
   roles,
@@ -50,6 +51,7 @@ export function ServerSettingsDialog({
   onOpenChange: (v: boolean) => void;
   server: Server | null;
   channels: Channel[];
+  categories: ChannelCategory[];
   channelPerms?: ChannelRolePerm[];
   members: Member[];
   roles: ServerRole[];
@@ -73,6 +75,7 @@ export function ServerSettingsDialog({
     if (!server) return;
     qc.invalidateQueries({ queryKey: ["servers"] });
     qc.invalidateQueries({ queryKey: ["channels", server.id] });
+    qc.invalidateQueries({ queryKey: ["channel-categories", server.id] });
     qc.invalidateQueries({ queryKey: ["members", server.id] });
     qc.invalidateQueries({ queryKey: ["roles", server.id] });
   }
@@ -204,6 +207,27 @@ export function ServerSettingsDialog({
     }
     toast.success("Kanal silindi");
     invalidate();
+  }
+
+  async function renameCategory(category: ChannelCategory): Promise<void> {
+    const input = window.prompt("Kategori adı", category.name);
+    if (input === null || !input.trim()) return;
+    const { error } = await supabase.from("channel_categories").update({ name: input.trim().slice(0, 50) }).eq("id", category.id);
+    if (error) toast.error("Kategori güncellenemedi");
+    else invalidate();
+  }
+
+  async function deleteCategory(category: ChannelCategory): Promise<void> {
+    if (!window.confirm(`"${category.name}" kategorisi silinsin mi? Kanallar kategorisiz kalacak.`)) return;
+    const { error } = await supabase.from("channel_categories").delete().eq("id", category.id);
+    if (error) toast.error("Kategori silinemedi");
+    else invalidate();
+  }
+
+  async function moveChannel(channel: Channel, categoryId: string): Promise<void> {
+    const { error } = await supabase.from("channels").update({ category_id: categoryId || null }).eq("id", channel.id);
+    if (error) toast.error("Kanal taşınamadı");
+    else invalidate();
   }
 
   async function kick(member: Member): Promise<void> {
@@ -430,9 +454,18 @@ export function ServerSettingsDialog({
 
               {section === "channels" && (
                 <div className="space-y-1">
+                  {categories.map((category) => (
+                    <div key={category.id} className="flex items-center gap-2 rounded px-2 py-1.5 text-sm">
+                      <span className="min-w-0 flex-1 truncate font-semibold">{category.name}</span>
+                      {canManageChannels && <>
+                        <Button size="sm" variant="ghost" onClick={() => renameCategory(category)}>Yeniden adlandır</Button>
+                        <Button size="icon" variant="ghost" aria-label={`${category.name} kategorisini sil`} onClick={() => deleteCategory(category)}><Trash2 className="size-4" /></Button>
+                      </>}
+                    </div>
+                  ))}
                   {channels.map((c) => (
+                    <div key={c.id}>
                     <ChannelRow
-                      key={c.id}
                       channel={c}
                       roles={roles}
                       perms={channelPerms.filter((p) => p.channel_id === c.id)}
@@ -444,6 +477,11 @@ export function ServerSettingsDialog({
                         qc.invalidateQueries({ queryKey: ["channel-perms", server.id] });
                       }}
                     />
+                    {canManageChannels && <select aria-label={`${c.name} kategorisi`} value={c.category_id ?? ""} onChange={(e) => moveChannel(c, e.target.value)} className="mb-2 ml-3 rounded border border-border bg-input px-2 py-1 text-xs text-foreground">
+                      <option value="">Kategorisiz</option>
+                      {categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}
+                    </select>}
+                    </div>
                   ))}
                   {channels.length === 0 && (
                     <p className="text-sm text-muted-foreground">Henüz kanal yok.</p>
