@@ -17,6 +17,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
 import { UserAvatar } from "@/components/sweecord/UserAvatar";
 import { slugifyUsername, uploadAvatar, type Profile } from "@/lib/sweecord";
+import { applyTheme, savedTheme, themeOptions, type Theme } from "@/lib/theme";
 
 export function ProfileDialog({
   open,
@@ -35,6 +36,7 @@ export function ProfileDialog({
   const [avatarUrl, setAvatarUrl] = useState(profile.avatar_url);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [theme, setTheme] = useState<Theme>("dark");
   const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -43,6 +45,7 @@ export function ProfileDialog({
     setUsername(profile.username);
     setStatus(profile.status);
     setAvatarUrl(profile.avatar_url);
+    setTheme(savedTheme());
   }, [open, profile]);
 
   async function handleFile(file: File | undefined) {
@@ -92,7 +95,7 @@ export function ProfileDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="bg-card sm:max-w-md">
+      <DialogContent className="max-h-[90vh] overflow-y-auto bg-card sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Profilim</DialogTitle>
           <DialogDescription>Seni diğer üyelerin nasıl göreceğini belirle.</DialogDescription>
@@ -113,6 +116,19 @@ export function ProfileDialog({
               Fotoğraf yükle
             </Button>
             <p className="mt-2 text-xs text-muted-foreground">PNG veya JPG, en fazla 5 MB.</p>
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          <Label>Görünüm</Label>
+          <div className="grid grid-cols-3 gap-2" role="group" aria-label="Tema">
+            {themeOptions.map((option) => (
+              <Button key={option.value} type="button" variant={theme === option.value ? "default" : "secondary"}
+                aria-pressed={theme === option.value}
+                onClick={() => { setTheme(option.value); applyTheme(option.value); }}>
+                {option.label}
+              </Button>
+            ))}
           </div>
         </div>
 
