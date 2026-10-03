@@ -585,10 +585,24 @@ function AppPage() {
                 {channels.filter((c) => c.type === "voice" && !c.category_id).map(renderChannel)}
                 {categories.map((category) => (
                   <div key={category.id} className="pt-4">
-                    <Button variant="ghost" className="h-auto w-full justify-start gap-1 px-2 py-1 text-xs font-bold uppercase text-muted-foreground" onClick={() => setCollapsedCategories((old) => old.includes(category.id) ? old.filter((id) => id !== category.id) : [...old, category.id])}>
+                    <div className="group flex items-center">
+                    <Button variant="ghost" className="h-auto min-w-0 flex-1 justify-start gap-1 px-2 py-1 text-xs font-bold uppercase text-muted-foreground" onClick={() => setCollapsedCategories((old) => old.includes(category.id) ? old.filter((id) => id !== category.id) : [...old, category.id])}>
                       {collapsedCategories.includes(category.id) ? <ChevronRight className="size-3" /> : <ChevronDown className="size-3" />}
                       <span className="truncate">{category.name}</span>
                     </Button>
+                    {(isOwner || myPerms.manage_channels) && (
+                      <Button variant="ghost" size="icon" aria-label="Kategoriyi sil" className="size-6 text-muted-foreground opacity-0 hover:text-destructive group-hover:opacity-100" onClick={async () => {
+                        if (!confirm(`"${category.name}" kategorisi silinsin mi? Kanallar kategorisiz kalır.`)) return;
+                        const { error } = await supabase.from("channel_categories").delete().eq("id", category.id);
+                        if (error) return void toast.error(error.message);
+                        toast.success("Kategori silindi");
+                        void qc.invalidateQueries({ queryKey: ["channel-categories", serverId] });
+                        void qc.invalidateQueries({ queryKey: ["channels", serverId] });
+                      }}>
+                        <Trash2 className="size-3.5" />
+                      </Button>
+                    )}
+                    </div>
                     {!collapsedCategories.includes(category.id) && channels.filter((c) => c.category_id === category.id).map(renderChannel)}
                   </div>
                 ))}
