@@ -1,20 +1,11 @@
 import { useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { MonitorUp } from "lucide-react";
 import { UserAvatar } from "@/components/sweecord/UserAvatar";
-
-type VoiceMember = { id: string; name: string; avatar: string | null; inCall: boolean };
+import { subscribeRoster, type VoiceMember } from "@/lib/voicePresence";
 
 export function VoiceRoster({ channelId }: { channelId: string }) {
   const [members, setMembers] = useState<VoiceMember[]>([]);
-
-  useEffect(() => {
-    const channel = supabase.channel(`voice-roster-${channelId}`);
-    channel.on("presence", { event: "sync" }, () => {
-      const state = channel.presenceState<VoiceMember>();
-      setMembers(Object.values(state).flat().filter((member) => member.inCall));
-    }).subscribe();
-    return () => { void supabase.removeChannel(channel); };
-  }, [channelId]);
+  useEffect(() => subscribeRoster(channelId, setMembers), [channelId]);
 
   if (!members.length) return null;
   return (
@@ -23,6 +14,7 @@ export function VoiceRoster({ channelId }: { channelId: string }) {
         <div key={member.id} className="flex min-w-0 items-center gap-2 rounded px-1 py-1 text-sm text-sidebar-foreground">
           <UserAvatar name={member.name} url={member.avatar} className="size-6 shrink-0" />
           <span className="truncate">{member.name}</span>
+          {member.sharing && <span className="ml-auto flex items-center gap-1 rounded bg-destructive px-1 text-[10px] font-bold text-destructive-foreground"><MonitorUp className="size-3" />CANLI</span>}
         </div>
       ))}
     </div>
