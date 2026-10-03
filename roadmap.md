@@ -1,0 +1,3 @@
+- [ ] Metin kanallarına geçince ses bağlantısını koru ve ayrılma denetimini görünür tut.
+- [ ] Konuşan üyeyi yeşil halkayla göster.
+- [ ] Kullanıcı ayarlarına kalıcı tema seçenekleri ekle.
