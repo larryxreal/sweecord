@@ -5,7 +5,7 @@ export const themeOptions: { value: Theme; label: string }[] = [
   { value: "midnight", label: "Gece" },
 ];
 export function applyTheme(theme: Theme) {
-  document.documentElement.dataset.theme = theme;
+  document.documentElement.dataset['theme'] = theme;
   document.documentElement.classList.toggle("dark", theme !== "light");
   localStorage.setItem("sweecord-theme", theme);
 }
