@@ -23,7 +23,7 @@ function VideoTile({ stream, label }: { stream: MediaStream; label: string }) {
 }
 
 /** Mesh WebRTC voice room with screen sharing; signaling over realtime broadcast. */
-export function VoiceRoom({ channelId, channelName, me }: { channelId: string; channelName: string; me: Peer }) {
+export function VoiceRoom({ channelId, channelName, me, compact = false }: { channelId: string; channelName: string; me: Peer; compact?: boolean }) {
   const [joined, setJoined] = useState(false);
   const [muted, setMuted] = useState(false);
   const [roster, setRoster] = useState<VoiceMember[]>([]);
@@ -193,6 +193,29 @@ export function VoiceRoom({ channelId, channelName, me }: { channelId: string; c
 
   const nameOf = (id: string) => roster.find((r) => r.id === id)?.name ?? "Kullanıcı";
   const screens = [...(myScreen ? [["me", myScreen] as const] : []), ...Object.entries(videos)];
+
+  if (compact) {
+    return (
+      <>
+        {joined && (
+          <div className="flex shrink-0 items-center gap-2 border-b border-border bg-card px-4 py-2">
+            <Volume2 className="size-4 text-success" />
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-bold text-success">Sese bağlı</p>
+              <p className="truncate text-xs text-muted-foreground">{channelName}{myScreen ? " · Ekran paylaşılıyor" : ""}</p>
+            </div>
+            <Button size="icon" variant="ghost" onClick={toggleMute} aria-label={muted ? "Sesi aç" : "Sustur"}>
+              {muted ? <MicOff className="size-4 text-destructive" /> : <Mic className="size-4" />}
+            </Button>
+            <Button size="icon" variant="ghost" onClick={leave} aria-label="Ayrıl">
+              <PhoneOff className="size-4 text-destructive" />
+            </Button>
+          </div>
+        )}
+        <div ref={audioBox} className="hidden" />
+      </>
+    );
+  }
 
   return (
     <>
