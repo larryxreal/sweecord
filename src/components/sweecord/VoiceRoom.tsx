@@ -194,8 +194,7 @@ export function VoiceRoom({ channelId, channelName, me, compact = false }: { cha
   const nameOf = (id: string) => roster.find((r) => r.id === id)?.name ?? "Kullanıcı";
   const screens = [...(myScreen ? [["me", myScreen] as const] : []), ...Object.entries(videos)];
 
-  if (compact) {
-    return (
+  const presentation = compact ? (
       <>
         {joined && (
           <div className="flex shrink-0 items-center gap-2 border-b border-border bg-card px-4 py-2">
@@ -212,12 +211,8 @@ export function VoiceRoom({ channelId, channelName, me, compact = false }: { cha
             </Button>
           </div>
         )}
-        <div ref={audioBox} className="hidden" />
       </>
-    );
-  }
-
-  return (
+  ) : (
     <>
       <header className="flex h-12 shrink-0 items-center gap-2 border-b border-border px-4 shadow-panel">
         <Volume2 className="size-5 text-muted-foreground" />
@@ -268,6 +263,12 @@ export function VoiceRoom({ channelId, channelName, me, compact = false }: { cha
           )}
         </div>
       </div>
+    </>
+  );
+
+  return (
+    <>
+      {presentation}
       <div ref={audioBox} className="hidden" />
     </>
   );
