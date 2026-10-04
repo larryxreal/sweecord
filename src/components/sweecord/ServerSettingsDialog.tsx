@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Copy, Hash, ImageIcon, Trash2, UserMinus, Volume2 } from "lucide-react";
@@ -433,6 +433,7 @@ export function ServerSettingsDialog({
                               style={{ backgroundColor: c }}
                             />
                           ))}
+                          <RoleColorPicker value={r.color} onChange={(c) => updateRole(r.id, { color: c })} />
                         </div>
                       )}
                       <div className="space-y-2">
@@ -625,6 +626,53 @@ function ChannelRow({
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+const HEX_RE = /^#[0-9a-f]{6}$/i;
+
+/** Discord-like custom color: native picker swatch plus editable HEX; commits on release/blur. */
+function RoleColorPicker({ value, onChange }: { value: string; onChange: (c: string) => void }) {
+  const [draft, setDraft] = useState(value);
+  const timer = useRef<number | undefined>(undefined);
+  useEffect(() => setDraft(value), [value]);
+  useEffect(() => () => window.clearTimeout(timer.current), []);
+  const custom = !COLORS.includes(value.toLowerCase());
+  const commit = (c: string) => {
+    const v = c.toLowerCase();
+    if (HEX_RE.test(v) && v !== value.toLowerCase()) onChange(v);
+    else setDraft(value);
+  };
+  return (
+    <div className="flex items-center gap-1.5">
+      <label
+        className={cn("relative size-6 cursor-pointer overflow-hidden rounded-full border border-border ring-offset-2 ring-offset-background", custom && "ring-2 ring-foreground")}
+        style={{ backgroundColor: HEX_RE.test(draft) ? draft : value }}
+        title="Özel renk"
+      >
+        <input
+          type="color"
+          aria-label="Özel renk seç"
+          value={HEX_RE.test(draft) ? draft : "#99aab5"}
+          onChange={(e) => {
+            const v = e.target.value;
+            setDraft(v);
+            window.clearTimeout(timer.current);
+            timer.current = window.setTimeout(() => commit(v), 400);
+          }}
+          className="absolute inset-0 cursor-pointer opacity-0"
+        />
+      </label>
+      <input
+        aria-label="HEX renk"
+        value={draft}
+        maxLength={7}
+        onChange={(e) => setDraft(e.target.value.startsWith("#") ? e.target.value : `#${e.target.value}`)}
+        onBlur={() => commit(draft)}
+        onKeyDown={(e) => { if (e.key === "Enter") commit(draft); }}
+        className="h-6 w-20 rounded border border-border bg-background px-1.5 font-mono text-xs"
+      />
     </div>
   );
 }

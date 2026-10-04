@@ -207,6 +207,16 @@ function AppPage() {
   });
   const categories = categoriesQuery.data ?? [];
   const activeChannel = channels.find((c) => c.id === channelId) ?? null;
+  // The voice connection lives independently of the viewed channel so browsing text keeps the call.
+  const [voiceChannel, setVoiceChannel] = useState<{ id: string; name: string; serverId: string } | null>(null);
+  useEffect(() => {
+    if (activeChannel?.type === "voice" && activeChannel.id !== voiceChannel?.id)
+      setVoiceChannel({ id: activeChannel.id, name: activeChannel.name, serverId: activeChannel.server_id });
+  }, [activeChannel, voiceChannel?.id]);
+  useEffect(() => {
+    if (voiceChannel && servers.length && !servers.some((s) => s.id === voiceChannel.serverId)) setVoiceChannel(null);
+  }, [servers, voiceChannel]);
+  const showingVoice = !!activeServer && activeChannel?.type === "voice" && activeChannel.id === voiceChannel?.id;
 
   useEffect(() => {
     if (!channels.length) {
@@ -664,20 +674,22 @@ function AppPage() {
 
         {/* chat */}
         <main className="flex min-w-0 flex-1 flex-col">
+          {voiceChannel && (
+            <VoiceRoom
+              key={voiceChannel.id}
+              channelId={voiceChannel.id}
+              channelName={voiceChannel.name}
+              compact={!showingVoice}
+              me={{ id: user.id, name: profile.display_name || profile.username, avatar: profile.avatar_url }}
+            />
+          )}
           {!activeServer ? (
             dmUser ? (
               <DMPanel key={dmUser.id} me={profile} other={dmUser} />
             ) : (
               <FriendsPanel userId={user.id} onMessage={setDmUser} />
             )
-          ) : activeChannel?.type === "voice" ? (
-            <VoiceRoom
-              key={activeChannel.id}
-              channelId={activeChannel.id}
-              channelName={activeChannel.name}
-              me={{ id: user.id, name: profile.display_name || profile.username, avatar: profile.avatar_url }}
-            />
-          ) : (
+          ) : showingVoice ? null : (
             <>
           <header className="flex h-12 shrink-0 items-center gap-2 border-b border-border px-4 shadow-panel">
             {activeChannel ? (
