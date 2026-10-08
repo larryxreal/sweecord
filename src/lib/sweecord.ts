@@ -28,6 +28,8 @@ export type Channel = {
   type: string;
   everyone_view: boolean;
   everyone_send: boolean;
+  everyone_connect: boolean;
+  everyone_attach: boolean;
   created_at: string;
 };
 
@@ -44,6 +46,8 @@ export type ChannelRolePerm = {
   role_id: string;
   can_view: boolean;
   can_send: boolean;
+  can_connect: boolean;
+  can_attach: boolean;
 };
 
 export type Message = {
@@ -134,17 +138,68 @@ export async function uploadAvatar(userId: string, file: File): Promise<string> 
   return data.signedUrl;
 }
 
+export type RolePermKey =
+  | "manage_server"
+  | "manage_roles"
+  | "manage_channels"
+  | "manage_messages"
+  | "kick_members"
+  | "create_invite"
+  | "connect_voice";
+
 export type ServerRole = {
   id: string;
   server_id: string;
   name: string;
   color: string;
   position: number;
-  manage_channels: boolean;
-  manage_messages: boolean;
-  kick_members: boolean;
   created_at: string;
-};
+} & Record<RolePermKey, boolean>;
+
+export type MyPerms = Record<RolePermKey, boolean> & { isOwner: boolean; topPosition: number | null };
+
+/** Effective server permissions for a user; owner gets everything. */
+export function computePerms(isOwner: boolean, mine: ServerRole[]): MyPerms {
+  const has = (k: RolePermKey) => isOwner || mine.some((r) => r[k]);
+  return {
+    isOwner,
+    manage_server: has("manage_server"),
+    manage_roles: has("manage_roles"),
+    manage_channels: has("manage_channels"),
+    manage_messages: has("manage_messages"),
+    kick_members: has("kick_members"),
+    create_invite: has("create_invite"),
+    connect_voice: has("connect_voice"),
+    topPosition: mine.length ? Math.min(...mine.map((r) => r.position)) : null,
+  };
+}
+
+/** Mirrors the database channel_access() rule. */
+export function channelAllowed(
+  c: Channel,
+  kind: "view" | "send" | "attach" | "connect",
+  perms: MyPerms,
+  roleIds: string[],
+  overrides: ChannelRolePerm[],
+): boolean {
+  if (perms.manage_channels) return true;
+  const ev = c.everyone_view;
+  const everyone =
+    kind === "send" ? ev && c.everyone_send
+    : kind === "attach" ? ev && c.everyone_send && c.everyone_attach
+    : kind === "connect" ? ev && c.everyone_connect
+    : ev;
+  if (everyone) return true;
+  const mine = overrides.filter((p) => p.channel_id === c.id && roleIds.includes(p.role_id));
+  const role = mine.some((p) =>
+    kind === "send" ? p.can_view && p.can_send
+    : kind === "attach" ? p.can_view && p.can_send && p.can_attach
+    : kind === "connect" ? p.can_view && p.can_connect
+    : p.can_view,
+  );
+  if (role) return true;
+  return kind === "connect" && perms.connect_voice && channelAllowed(c, "view", perms, roleIds, overrides);
+}
 
 export type ServerMember = {
   user_id: string;
