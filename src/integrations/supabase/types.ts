@@ -51,6 +51,8 @@ export type Database = {
       }
       channel_role_perms: {
         Row: {
+          can_attach: boolean
+          can_connect: boolean
           can_send: boolean
           can_view: boolean
           channel_id: string
@@ -58,6 +60,8 @@ export type Database = {
           role_id: string
         }
         Insert: {
+          can_attach?: boolean
+          can_connect?: boolean
           can_send?: boolean
           can_view?: boolean
           channel_id: string
@@ -65,6 +69,8 @@ export type Database = {
           role_id: string
         }
         Update: {
+          can_attach?: boolean
+          can_connect?: boolean
           can_send?: boolean
           can_view?: boolean
           channel_id?: string
@@ -92,6 +98,8 @@ export type Database = {
         Row: {
           category_id: string | null
           created_at: string
+          everyone_attach: boolean
+          everyone_connect: boolean
           everyone_send: boolean
           everyone_view: boolean
           id: string
@@ -103,6 +111,8 @@ export type Database = {
         Insert: {
           category_id?: string | null
           created_at?: string
+          everyone_attach?: boolean
+          everyone_connect?: boolean
           everyone_send?: boolean
           everyone_view?: boolean
           id?: string
@@ -114,6 +124,8 @@ export type Database = {
         Update: {
           category_id?: string | null
           created_at?: string
+          everyone_attach?: boolean
+          everyone_connect?: boolean
           everyone_send?: boolean
           everyone_view?: boolean
           id?: string
@@ -374,33 +386,45 @@ export type Database = {
       server_roles: {
         Row: {
           color: string
+          connect_voice: boolean
+          create_invite: boolean
           created_at: string
           id: string
           kick_members: boolean
           manage_channels: boolean
           manage_messages: boolean
+          manage_roles: boolean
+          manage_server: boolean
           name: string
           position: number
           server_id: string
         }
         Insert: {
           color?: string
+          connect_voice?: boolean
+          create_invite?: boolean
           created_at?: string
           id?: string
           kick_members?: boolean
           manage_channels?: boolean
           manage_messages?: boolean
+          manage_roles?: boolean
+          manage_server?: boolean
           name: string
           position?: number
           server_id: string
         }
         Update: {
           color?: string
+          connect_voice?: boolean
+          create_invite?: boolean
           created_at?: string
           id?: string
           kick_members?: boolean
           manage_channels?: boolean
           manage_messages?: boolean
+          manage_roles?: boolean
+          manage_server?: boolean
           name?: string
           position?: number
           server_id?: string
@@ -469,6 +493,10 @@ export type Database = {
         Returns: boolean
       }
       join_server_by_code: { Args: { _code: string }; Returns: string }
+      member_top_position: {
+        Args: { _server_id: string; _user_id: string }
+        Returns: number
+      }
       set_member_role: {
         Args: {
           _on: boolean
