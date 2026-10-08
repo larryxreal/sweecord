@@ -23,7 +23,7 @@ function VideoTile({ stream, label }: { stream: MediaStream; label: string }) {
 }
 
 /** Mesh WebRTC voice room with screen sharing; signaling over realtime broadcast. */
-export function VoiceRoom({ channelId, channelName, me, compact = false }: { channelId: string; channelName: string; me: Peer; compact?: boolean }) {
+export function VoiceRoom({ channelId, channelName, me, compact = false, canConnect = true }: { channelId: string; channelName: string; me: Peer; compact?: boolean; canConnect?: boolean }) {
   const [joined, setJoined] = useState(false);
   const [muted, setMuted] = useState(false);
   const [roster, setRoster] = useState<VoiceMember[]>([]);
@@ -238,9 +238,13 @@ export function VoiceRoom({ channelId, channelName, me, compact = false }: { cha
         </div>
         <div className="flex flex-wrap justify-center gap-2">
           {!joined ? (
-            <Button onClick={join} className="bg-success text-primary-foreground hover:bg-success/90">
-              <Volume2 className="size-4" /> Sesli kanala katıl
-            </Button>
+            canConnect ? (
+              <Button onClick={join} className="bg-success text-primary-foreground hover:bg-success/90">
+                <Volume2 className="size-4" /> Sesli kanala katıl
+              </Button>
+            ) : (
+              <p className="text-sm text-muted-foreground">Bu ses kanalına bağlanma iznin yok.</p>
+            )
           ) : (
             <>
               <Button variant="secondary" onClick={toggleMute}>

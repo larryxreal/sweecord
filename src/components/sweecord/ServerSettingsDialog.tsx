@@ -18,7 +18,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { UserAvatar } from "@/components/sweecord/UserAvatar";
-import type { Channel, ChannelCategory, ChannelRolePerm, Server, ServerMember, ServerRole } from "@/lib/sweecord";
+import type { Channel, ChannelCategory, ChannelRolePerm, MyPerms, RolePermKey, Server, ServerMember, ServerRole } from "@/lib/sweecord";
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
 
@@ -27,11 +27,23 @@ type Member = ServerMember;
 type Section = "overview" | "roles" | "channels" | "members";
 
 const COLORS = ["#99aab5", "#1abc9c", "#2ecc71", "#3498db", "#9b59b6", "#e91e63", "#f1c40f", "#e67e22", "#e74c3c"];
-const PERMS: { key: "manage_channels" | "manage_messages" | "kick_members"; label: string }[] = [
-  { key: "manage_channels", label: "Kanalları yönet" },
-  { key: "manage_messages", label: "Mesajları yönet" },
-  { key: "kick_members", label: "Üyeleri at" },
+const PERMS: { key: RolePermKey; label: string; hint: string }[] = [
+  { key: "manage_server", label: "Sunucuyu yönet", hint: "Ad, simge ve banner değiştirebilir." },
+  { key: "manage_roles", label: "Rolleri yönet", hint: "Kendi rolünün altındaki rolleri düzenler ve verir." },
+  { key: "manage_channels", label: "Kanalları yönet", hint: "Kanal, kategori ve kanal izinleri." },
+  { key: "manage_messages", label: "Mesajları yönet", hint: "Başkalarının mesajlarını silebilir." },
+  { key: "kick_members", label: "Üyeleri at", hint: "Üyeleri sunucudan çıkarabilir." },
+  { key: "create_invite", label: "Davet oluştur", hint: "Davet kodunu görüp paylaşabilir." },
+  { key: "connect_voice", label: "Ses kanallarına bağlan", hint: "Görebildiği tüm ses kanallarına girebilir." },
 ];
+
+function errText(e: { message?: string } | null, fallback: string) {
+  const m = e?.message ?? "";
+  if (m.includes("role_hierarchy")) return "Bu rol senin en yüksek rolüne eşit veya üstünde";
+  if (m.includes("perm_not_held")) return "Sahip olmadığın bir izni veremezsin";
+  if (m.includes("owner_only_field")) return "Bu alanı sadece sunucu sahibi değiştirebilir";
+  return fallback;
+}
 
 export function ServerSettingsDialog({
   open,
@@ -43,6 +55,7 @@ export function ServerSettingsDialog({
   members,
   roles,
   isOwner,
+  perms,
   canKick,
   canManageChannels,
   onDeleted,
@@ -56,6 +69,7 @@ export function ServerSettingsDialog({
   members: Member[];
   roles: ServerRole[];
   isOwner: boolean;
+  perms: MyPerms;
   canKick: boolean;
   canManageChannels: boolean;
   onDeleted: () => void;
@@ -71,6 +85,22 @@ export function ServerSettingsDialog({
 
   if (!server) return null;
 
+  const canManageServer = isOwner || perms.manage_server;
+  const canManageRoles = isOwner || perms.manage_roles;
+  const canInvite = isOwner || perms.create_invite || perms.manage_server;
+  const top = perms.topPosition;
+  const roleEditable = (r: ServerRole) => isOwner || (perms.manage_roles && top !== null && r.position > top);
+  const memberTop = (m: Member) => {
+    const ps = roles.filter((r) => m.role_ids.includes(r.id)).map((r) => r.position);
+    return ps.length ? Math.min(...ps) : null;
+  };
+  const memberManageable = (m: Member, meId?: string) => {
+    if (isOwner) return true;
+    if (m.role === "owner") return false;
+    const t = memberTop(m);
+    return m.user_id === meId || t === null || (top !== null && t > top);
+  };
+
   function invalidate() {
     if (!server) return;
     qc.invalidateQueries({ queryKey: ["servers"] });
@@ -82,11 +112,12 @@ export function ServerSettingsDialog({
 
   async function createRole(): Promise<void> {
     if (!server) return;
+    const maxPos = roles.reduce((m, r) => Math.max(m, r.position), -1);
     const { error } = await supabase
       .from("server_roles")
-      .insert({ server_id: server.id, name: "yeni rol", position: roles.length });
+      .insert({ server_id: server.id, name: "yeni rol", position: Math.max(roles.length, maxPos + 1) });
     if (error) {
-      toast.error("Rol oluşturulamadı");
+      toast.error(errText(error, "Rol oluşturulamadı"));
       return;
     }
     invalidate();

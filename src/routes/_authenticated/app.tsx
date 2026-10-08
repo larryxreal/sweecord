@@ -65,6 +65,7 @@ import {
   type ServerMember,
   type ServerRole,
 } from "@/lib/sweecord";
+import { channelAllowed, computePerms } from "@/lib/sweecord";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/app")({
@@ -291,12 +292,8 @@ function AppPage() {
   const myPerms = useMemo(() => {
     const me = members.find((m) => m.user_id === user.id);
     const mine = roles.filter((r) => me?.role_ids.includes(r.id));
-    return {
-      manage_messages: mine.some((r) => r.manage_messages),
-      manage_channels: mine.some((r) => r.manage_channels),
-      kick_members: mine.some((r) => r.kick_members),
-    };
-  }, [members, roles, user.id]);
+    return computePerms(activeServer?.owner_id === user.id, mine);
+  }, [members, roles, user.id, activeServer?.owner_id]);
 
   const channelPermsQuery = useQuery({
     queryKey: ["channel-perms", serverId],
@@ -438,12 +435,10 @@ function AppPage() {
 
   const isOwner = activeServer?.owner_id === user.id;
   const myRoleIds = members.find((m) => m.user_id === user.id)?.role_ids ?? [];
-  const canSend =
-    !activeChannel ||
-    isOwner ||
-    myPerms.manage_channels ||
-    (activeChannel.everyone_view && activeChannel.everyone_send) ||
-    channelPerms.some((p) => p.channel_id === activeChannel.id && p.can_send && p.can_view && myRoleIds.includes(p.role_id));
+  const canSend = !activeChannel || channelAllowed(activeChannel, "send", myPerms, myRoleIds, channelPerms);
+  const canAttach = !activeChannel || channelAllowed(activeChannel, "attach", myPerms, myRoleIds, channelPerms);
+  const voiceChan = voiceChannel ? channels.find((c) => c.id === voiceChannel.id) : undefined;
+  const canConnect = !voiceChan || voiceChan.server_id !== serverId || channelAllowed(voiceChan, "connect", myPerms, myRoleIds, channelPerms);
 
   const renderChannel = (c: Channel) => (
     <div key={c.id}>
@@ -546,9 +541,11 @@ function AppPage() {
                   </button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-52">
-                  <DropdownMenuItem onClick={() => setInviteOpen(true)}>
-                    <Copy className="size-4" /> Davet kodunu göster
-                  </DropdownMenuItem>
+                  {(myPerms.create_invite || myPerms.manage_server) && (
+                    <DropdownMenuItem onClick={() => setInviteOpen(true)}>
+                      <Copy className="size-4" /> Davet kodunu göster
+                    </DropdownMenuItem>
+                  )}
                   <DropdownMenuItem onClick={() => setSettingsOpen(true)}>
                     <Settings className="size-4" /> Sunucu ayarları
                   </DropdownMenuItem>
@@ -680,6 +677,7 @@ function AppPage() {
               channelId={voiceChannel.id}
               channelName={voiceChannel.name}
               compact={!showingVoice}
+              canConnect={canConnect}
               me={{ id: user.id, name: profile.display_name || profile.username, avatar: profile.avatar_url }}
             />
           )}
@@ -771,8 +769,8 @@ function AppPage() {
                     }
                     className="border-0 bg-transparent shadow-none focus-visible:ring-0"
                   />
-                  <ImageButton userId={user.id} disabled={!activeChannel || !canSend} onUploaded={sendImage} />
-                  <VoiceRecorder disabled={!activeChannel || !canSend} onRecorded={sendVoice} />
+                  <ImageButton userId={user.id} disabled={!activeChannel || !canSend || !canAttach} onUploaded={sendImage} />
+                  <VoiceRecorder disabled={!activeChannel || !canSend || !canAttach} onRecorded={sendVoice} />
                   <button
                     type="submit"
                     disabled={!activeChannel || !draft.trim()}
@@ -867,6 +865,7 @@ function AppPage() {
         members={members}
         roles={roles}
         isOwner={isOwner}
+        perms={myPerms}
         canKick={isOwner || myPerms.kick_members}
         canManageChannels={isOwner || myPerms.manage_channels}
         onDeleted={() => {
