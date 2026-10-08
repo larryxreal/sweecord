@@ -65,6 +65,7 @@ import {
   type ServerMember,
   type ServerRole,
 } from "@/lib/sweecord";
+import { channelAllowed, computePerms } from "@/lib/sweecord";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/app")({
