@@ -52,6 +52,8 @@ export type ChannelRolePerm = {
 
 export type Message = {
   id: string;
+  bot_application_id?: string | null;
+  bot_name?: string | null;
   channel_id: string;
   user_id: string;
   content: string;

@@ -13,6 +13,9 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedAppRouteImport } from './routes/_authenticated/app'
+import { Route as AuthenticatedDevelopersRouteImport } from './routes/_authenticated/developers'
+import { Route as ApiPublicBotsChannelsRouteImport } from './routes/api/public/bots/channels'
+import { Route as ApiPublicBotsMessagesRouteImport } from './routes/api/public/bots/messages'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -33,16 +36,37 @@ const AuthenticatedAppRoute = AuthenticatedAppRouteImport.update({
   path: '/app',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedDevelopersRoute = AuthenticatedDevelopersRouteImport.update({
+  id: '/developers',
+  path: '/developers',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const ApiPublicBotsChannelsRoute = ApiPublicBotsChannelsRouteImport.update({
+  id: '/api/public/bots/channels',
+  path: '/api/public/bots/channels',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicBotsMessagesRoute = ApiPublicBotsMessagesRouteImport.update({
+  id: '/api/public/bots/messages',
+  path: '/api/public/bots/messages',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/app': typeof AuthenticatedAppRoute
+  '/developers': typeof AuthenticatedDevelopersRoute
+  '/api/public/bots/channels': typeof ApiPublicBotsChannelsRoute
+  '/api/public/bots/messages': typeof ApiPublicBotsMessagesRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/app': typeof AuthenticatedAppRoute
+  '/developers': typeof AuthenticatedDevelopersRoute
+  '/api/public/bots/channels': typeof ApiPublicBotsChannelsRoute
+  '/api/public/bots/messages': typeof ApiPublicBotsMessagesRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -50,19 +74,44 @@ export interface FileRoutesById {
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/auth': typeof AuthRoute
   '/_authenticated/app': typeof AuthenticatedAppRoute
+  '/_authenticated/developers': typeof AuthenticatedDevelopersRoute
+  '/api/public/bots/channels': typeof ApiPublicBotsChannelsRoute
+  '/api/public/bots/messages': typeof ApiPublicBotsMessagesRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/auth' | '/app'
+  fullPaths:
+    | '/'
+    | '/auth'
+    | '/app'
+    | '/developers'
+    | '/api/public/bots/channels'
+    | '/api/public/bots/messages'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/auth' | '/app'
-  id: '__root__' | '/' | '/_authenticated' | '/auth' | '/_authenticated/app'
+  to:
+    | '/'
+    | '/auth'
+    | '/app'
+    | '/developers'
+    | '/api/public/bots/channels'
+    | '/api/public/bots/messages'
+  id:
+    | '__root__'
+    | '/'
+    | '/_authenticated'
+    | '/auth'
+    | '/_authenticated/app'
+    | '/_authenticated/developers'
+    | '/api/public/bots/channels'
+    | '/api/public/bots/messages'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
+  ApiPublicBotsChannelsRoute: typeof ApiPublicBotsChannelsRoute
+  ApiPublicBotsMessagesRoute: typeof ApiPublicBotsMessagesRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -95,15 +144,38 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAppRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/developers': {
+      id: '/_authenticated/developers'
+      path: '/developers'
+      fullPath: '/developers'
+      preLoaderRoute: typeof AuthenticatedDevelopersRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/api/public/bots/channels': {
+      id: '/api/public/bots/channels'
+      path: '/api/public/bots/channels'
+      fullPath: '/api/public/bots/channels'
+      preLoaderRoute: typeof ApiPublicBotsChannelsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/bots/messages': {
+      id: '/api/public/bots/messages'
+      path: '/api/public/bots/messages'
+      fullPath: '/api/public/bots/messages'
+      preLoaderRoute: typeof ApiPublicBotsMessagesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedAppRoute: typeof AuthenticatedAppRoute
+  AuthenticatedDevelopersRoute: typeof AuthenticatedDevelopersRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAppRoute: AuthenticatedAppRoute,
+  AuthenticatedDevelopersRoute: AuthenticatedDevelopersRoute,
 }
 
 const AuthenticatedRouteRouteWithChildren =
@@ -113,6 +185,8 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthRoute: AuthRoute,
+  ApiPublicBotsChannelsRoute: ApiPublicBotsChannelsRoute,
+  ApiPublicBotsMessagesRoute: ApiPublicBotsMessagesRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

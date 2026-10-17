@@ -1,3 +1,4 @@
-- [ ] Metin kanallarına geçince ses bağlantısını koru ve ayrılma denetimini görünür tut.
-- [ ] Konuşan üyeyi yeşil halkayla göster.
-- [ ] Kullanıcı ayarlarına kalıcı tema seçenekleri ekle.
+- [ ] SweeCord geliştirici portalı ve bot yönetimini ekle.
+- [ ] Bot anahtarları, sunucu kurulumları ve mesaj API’sini güvenli şekilde uygula.
+- [ ] Bot mesajlarını sohbet içinde işaretle ve canlı akışı doğrula.
+- [ ] Önceki istek: konuşan üye halkasının durumunu doğrula (bu isteğin kapsamı dışında).

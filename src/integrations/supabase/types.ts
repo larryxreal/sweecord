@@ -14,6 +14,110 @@ export type Database = {
   }
   public: {
     Tables: {
+      bot_applications: {
+        Row: {
+          created_at: string
+          description: string
+          id: string
+          name: string
+          owner_id: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string
+          id?: string
+          name: string
+          owner_id: string
+        }
+        Update: {
+          created_at?: string
+          description?: string
+          id?: string
+          name?: string
+          owner_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bot_applications_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      bot_credentials: {
+        Row: {
+          application_id: string
+          token_hash: string
+          updated_at: string
+        }
+        Insert: {
+          application_id: string
+          token_hash: string
+          updated_at?: string
+        }
+        Update: {
+          application_id?: string
+          token_hash?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bot_credentials_application_id_fkey"
+            columns: ["application_id"]
+            isOneToOne: true
+            referencedRelation: "bot_applications"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      bot_installations: {
+        Row: {
+          application_id: string
+          can_send: boolean
+          created_at: string
+          installed_by: string
+          server_id: string
+        }
+        Insert: {
+          application_id: string
+          can_send?: boolean
+          created_at?: string
+          installed_by: string
+          server_id: string
+        }
+        Update: {
+          application_id?: string
+          can_send?: boolean
+          created_at?: string
+          installed_by?: string
+          server_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bot_installations_application_id_fkey"
+            columns: ["application_id"]
+            isOneToOne: false
+            referencedRelation: "bot_applications"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bot_installations_installed_by_fkey"
+            columns: ["installed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bot_installations_server_id_fkey"
+            columns: ["server_id"]
+            isOneToOne: false
+            referencedRelation: "servers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       channel_categories: {
         Row: {
           created_at: string
@@ -272,6 +376,7 @@ export type Database = {
       messages: {
         Row: {
           audio_url: string | null
+          bot_application_id: string | null
           channel_id: string
           content: string
           created_at: string
@@ -281,6 +386,7 @@ export type Database = {
         }
         Insert: {
           audio_url?: string | null
+          bot_application_id?: string | null
           channel_id: string
           content: string
           created_at?: string
@@ -290,6 +396,7 @@ export type Database = {
         }
         Update: {
           audio_url?: string | null
+          bot_application_id?: string | null
           channel_id?: string
           content?: string
           created_at?: string
@@ -298,6 +405,13 @@ export type Database = {
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "messages_bot_application_id_fkey"
+            columns: ["bot_application_id"]
+            isOneToOne: false
+            referencedRelation: "bot_applications"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "messages_channel_id_fkey"
             columns: ["channel_id"]
@@ -475,6 +589,10 @@ export type Database = {
     }
     Functions: {
       are_friends: { Args: { _a: string; _b: string }; Returns: boolean }
+      can_read_bot: {
+        Args: { _application_id: string; _user_id: string }
+        Returns: boolean
+      }
       channel_access: {
         Args: { _channel_id: string; _kind: string; _user_id: string }
         Returns: boolean
