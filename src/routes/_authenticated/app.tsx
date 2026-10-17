@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -17,6 +17,7 @@ import {
   ChevronDown,
   ChevronRight,
   FolderPlus,
+  Bot,
 } from "lucide-react";
 
 import { supabase } from "@/integrations/supabase/client";
@@ -275,6 +276,20 @@ function AppPage() {
     },
   });
   const members = useMemo(() => membersQuery.data ?? [], [membersQuery.data]);
+  const botsQuery = useQuery({
+    queryKey: ["server-bots", serverId],
+    enabled: !!serverId,
+    queryFn: async () => {
+      if (!serverId) return [];
+      const { data: installs, error } = await supabase.from("bot_installations").select("application_id").eq("server_id", serverId);
+      if (error) throw error;
+      const ids = (installs ?? []).map(i => i.application_id);
+      if (!ids.length) return [];
+      const { data, error: botError } = await supabase.from("bot_applications").select("id,name").in("id", ids);
+      if (botError) throw botError;
+      return data ?? [];
+    },
+  });
   const memberMap = useMemo(() => {
     const map = new Map<string, { name: string; avatar: string | null; color: string | null }>();
     for (const m of members) {
@@ -638,6 +653,7 @@ function AppPage() {
           </ScrollArea>
 
           {/* user bar */}
+          <Button variant="ghost" asChild className="justify-start rounded-none px-4 text-muted-foreground"><Link to="/developers"><Bot className="size-4" />Geliştirici Portalı</Link></Button>
           <div className="flex items-center gap-2 bg-rail px-2 py-2">
             <UserAvatar name={profile.display_name || profile.username} url={profile.avatar_url} className="size-8" />
             <div className="min-w-0 flex-1">
@@ -715,15 +731,18 @@ function AppPage() {
                   )}
                   {messages.map((m) => {
                     const author = memberMap.get(m.user_id);
-                    const mine = m.user_id === user.id;
+                    const bot = m.bot_application_id || m.bot_name;
+                    const botName = botsQuery.data?.find(b => b.id === m.bot_application_id)?.name ?? m.bot_name ?? "Silinen bot";
+                    const mine = !bot && m.user_id === user.id;
                     return (
                       <div key={m.id} className="group flex gap-3">
-                        <button onClick={() => setViewUserId(m.user_id)} className="shrink-0 self-start">
-                          <UserAvatar name={author?.name ?? "Üye"} url={author?.avatar ?? null} />
+                        <button onClick={() => !bot && setViewUserId(m.user_id)} disabled={!!bot} className="shrink-0 self-start">
+                          {bot ? <div className="flex size-9 items-center justify-center rounded-full bg-primary/15"><Bot className="size-5 text-primary" /></div> : <UserAvatar name={author?.name ?? "Üye"} url={author?.avatar ?? null} />}
                         </button>
                         <div className="min-w-0 flex-1">
                           <div className="flex items-baseline gap-2">
-                            <button onClick={() => setViewUserId(m.user_id)} className="text-sm font-semibold hover:underline" style={author?.color ? { color: author.color } : undefined}>{author?.name ?? "Eski üye"}</button>
+                            <button onClick={() => !bot && setViewUserId(m.user_id)} disabled={!!bot} className="break-words text-sm font-semibold hover:underline" style={!bot && author?.color ? { color: author.color } : undefined}>{bot ? botName : author?.name ?? "Eski üye"}</button>
+                            {bot && <span className="rounded bg-primary px-1 text-[10px] font-semibold text-primary-foreground">BOT</span>}
                             <span className="text-xs text-muted-foreground">{formatTime(m.created_at)}</span>
                             {(mine || isOwner || myPerms.manage_messages) && (
                               <button

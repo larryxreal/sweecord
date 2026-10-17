@@ -12,3 +12,5 @@
 - Keep channel categories as server-owned rows and channel membership as a nullable category reference; this preserves uncategorized channels and lets deleting a category retain its channels.
 - Derive the DM sidebar from message participants and their profiles; conversations remain available after a refresh without adding a duplicate conversation store.
 - Subscribe to voice roster presence separately from the call view; participants remain visible beneath voice channels even when another channel is selected.
+- Keep bot identities separate from auth profiles and persist bot attribution on messages; existing auth foreign keys require the developer profile as the transport author, not a synthetic auth account.
+- Store only SHA-256 bot-token hashes in a service-only table, authorize developer operations before loading the admin client, and enforce server installation plus channel permissions for external bot messages.
