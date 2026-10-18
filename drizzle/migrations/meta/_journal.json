@@ -15,6 +15,13 @@
       "when": 1792271722921,
       "tag": "0001_sweecord_bot_applications",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1792316961712,
+      "tag": "0002_preserve_bot_message_attribution",
+      "breakpoints": true
     }
   ]
 }
