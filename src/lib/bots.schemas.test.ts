@@ -1,7 +1,9 @@
-import { describe, expect, test } from "bun:test";
+import { describe, it as test } from "node:test";
+import { strictEqual } from "node:assert";
 import { applicationInput, botMessageInput, botTokenPattern, installationInput } from "./bots.schemas";
 
 const id = "11111111-1111-4111-8111-111111111111";
+const expect = (value: boolean) => ({ toBe: (expected: boolean) => strictEqual(value, expected) });
 describe("bot API input rules", () => {
   test("accepts 2000 characters but rejects 2001", () => {
     expect(botMessageInput.safeParse({ channel_id: id, content: "a".repeat(2000) }).success).toBe(true);
