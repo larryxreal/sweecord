@@ -1,4 +1,3 @@
-- [ ] SweeCord geliştirici portalı ve bot yönetimini ekle.
-- [ ] Bot anahtarları, sunucu kurulumları ve mesaj API’sini güvenli şekilde uygula.
-- [ ] Bot mesajlarını sohbet içinde işaretle ve canlı akışı doğrula.
-- [ ] Önceki istek: konuşan üye halkasının durumunu doğrula (bu isteğin kapsamı dışında).
+- [ ] Bot portalı, kurulum ve mesaj gönderme akışını doğrula; bulunan sorunları düzelt.
+- [ ] Ayrıntılı bot yapım rehberini ve portal bağlantısını ekle.
+- [ ] Bot kuralları testlerini ve derleme sonuçlarını kontrol et.

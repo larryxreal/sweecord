@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { queryOptions, useSuspenseQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
-import { Bot, ArrowLeft, Plus, Copy, KeyRound, Trash2, Save, Terminal, Server, X } from "lucide-react";
+import { Bot, ArrowLeft, Plus, Copy, KeyRound, Trash2, Save, Terminal, Server, X, BookOpen } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -63,6 +63,7 @@ function DeveloperPortal() {
         <div className="flex items-center justify-between"><h2 className="text-sm font-semibold text-muted-foreground">UYGULAMALAR</h2><Button size="icon" variant="ghost" aria-label="Yeni uygulama" onClick={() => setCreateOpen(true)}><Plus className="size-4" /></Button></div>
         {data.apps.map(a => <Button key={a.id} variant="ghost" className={cn("h-auto w-full justify-start gap-3 py-3", app?.id === a.id && "bg-accent")} onClick={() => { setSelectedId(a.id); setToken(null); }}><Bot className="size-5 shrink-0 text-primary" /><span className="truncate">{a.name}</span></Button>)}
         <Button variant="outline" className="w-full" onClick={() => setCreateOpen(true)}><Plus className="size-4" />Yeni uygulama</Button>
+        <Button variant="ghost" asChild className="w-full justify-start"><Link to="/bot-guide"><BookOpen className="size-4" />Bot yapım rehberi</Link></Button>
       </aside>
       <main className="min-w-0">
         {!app ? <div className="py-16 text-center"><Bot className="mx-auto size-16 text-primary" /><h1 className="mt-6 text-2xl font-bold">Bot uygulamaların</h1><p className="mt-2 text-muted-foreground">Henüz uygulama yok.</p><Button className="mt-6" onClick={() => setCreateOpen(true)}><Plus className="size-4" />Uygulama oluştur</Button></div> : <>
@@ -79,7 +80,7 @@ function DeveloperPortal() {
               <div className="divide-y divide-border">{data.installations.filter(i => i.application_id === app.id).map(i => <div key={i.server_id} className="flex flex-wrap items-center justify-between gap-3 py-4"><div className="flex min-w-0 items-center gap-3"><Server className="size-5 shrink-0 text-muted-foreground" /><div className="min-w-0"><p className="break-all text-sm font-semibold">{data.servers.find(s => s.id === i.server_id)?.name ?? i.server_id}</p><p className="text-xs text-muted-foreground">{i.can_send ? "Mesaj gönderme açık" : "Mesaj gönderme kapalı"}</p><Button size="sm" variant="ghost" className="mt-1 h-6 px-0 text-xs" onClick={() => copy(i.server_id)}>Sunucu kimliğini kopyala</Button></div></div><div className="flex items-center gap-3"><Switch aria-label="Bot mesaj gönderme izni" checked={i.can_send} disabled={busy} onCheckedChange={canSend => { void run(() => install({ data: { applicationId: app.id, serverId: i.server_id, canSend } }), "Bot izni güncellendi"); }} /><Button variant="ghost" size="icon" aria-label="Botu sunucudan kaldır" disabled={busy} onClick={() => { if (confirm("Bot sunucudan kaldırılsın mı?")) void run(() => remove({ data: { applicationId: app.id, serverId: i.server_id } }), "Bot kaldırıldı"); }}><Trash2 className="size-4 text-destructive" /></Button></div></div>)}</div>
             </TabsContent>
             <TabsContent value="api" className="space-y-6"><div className="flex items-center gap-2"><Terminal className="size-5 text-primary" /><h2 className="text-lg font-semibold">Bot API · v1</h2></div><p className="text-sm text-muted-foreground">Authorization: Bot &lt;BOT_TOKEN&gt;. Botlar yalnızca eklendikleri sunucularda, @herkes için görme ve yazma izni açık metin kanallarına mesaj gönderebilir. Mesajlar en fazla 2000 karakterdir.</p><ApiExample />
-              <p className="text-sm text-muted-foreground">Bu sürüm metin mesajı göndermeyi destekler. Mesaj geçmişi, olay bağlantısı, ses bağlantısı ve slash komutları henüz desteklenmiyor.</p>
+              <p className="text-sm text-muted-foreground">Bu sürüm metin mesajı göndermeyi destekler. Mesaj geçmişi, olay bağlantısı, ses bağlantısı ve slash komutları henüz desteklenmiyor.</p><Button variant="outline" asChild><Link to="/bot-guide"><BookOpen className="size-4" />Adım adım bot yapım rehberi</Link></Button>
             </TabsContent>
           </Tabs>
         </>}
@@ -101,5 +102,5 @@ function InstallationForm({ servers, busy, onInstall }: { servers: { id: string;
 
 function ApiExample() {
   const base = "https://sweecord.lovable.app/api/public/bots";
-  return <div className="space-y-4"><div><p className="mb-2 text-sm font-semibold">Kanalları listele</p><pre className="overflow-x-auto rounded-md bg-rail p-4 font-mono text-xs leading-relaxed">{`curl '${base}/channels?server_id=<SERVER_ID>' \\\n+  -H 'Authorization: Bot <BOT_TOKEN>'`}</pre></div><div><p className="mb-2 text-sm font-semibold">Mesaj gönder</p><pre className="overflow-x-auto rounded-md bg-rail p-4 font-mono text-xs leading-relaxed">{`curl -X POST '${base}/messages' \\\n+  -H 'Authorization: Bot <BOT_TOKEN>' \\\n+  -H 'Content-Type: application/json' \\\n+  -d '{"channel_id":"<CHANNEL_ID>","content":"Merhaba SweeCord!"}'`}</pre></div></div>;
+  return <div className="space-y-4"><div><p className="mb-2 text-sm font-semibold">Kanalları listele</p><pre className="overflow-x-auto rounded-md bg-rail p-4 font-mono text-xs leading-relaxed">{`curl '${base}/channels?server_id=<SERVER_ID>' \\\n  -H 'Authorization: Bot <BOT_TOKEN>'`}</pre></div><div><p className="mb-2 text-sm font-semibold">Mesaj gönder</p><pre className="overflow-x-auto rounded-md bg-rail p-4 font-mono text-xs leading-relaxed">{`curl -X POST '${base}/messages' \\\n  -H 'Authorization: Bot <BOT_TOKEN>' \\\n  -H 'Content-Type: application/json' \\\n  -d '{"channel_id":"<CHANNEL_ID>","content":"Merhaba SweeCord!"}'`}</pre></div></div>;
 }
