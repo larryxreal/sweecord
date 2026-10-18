@@ -14,3 +14,4 @@
 - Subscribe to voice roster presence separately from the call view; participants remain visible beneath voice channels even when another channel is selected.
 - Keep bot identities separate from auth profiles and persist bot attribution on messages; existing auth foreign keys require the developer profile as the transport author, not a synthetic auth account.
 - Store only SHA-256 bot-token hashes in a service-only table, authorize developer operations before loading the admin client, and enforce server installation plus channel permissions for external bot messages.
+- Keep the bot guide as a public content route linked from the protected developer portal; document only supported API operations so examples remain usable without exposing account data.
